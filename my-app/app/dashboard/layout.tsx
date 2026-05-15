@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { LayoutDashboard, Briefcase, History, LogOut } from "lucide-react"
-import { useEffect } from "react"
+import { useUser } from "../UserProvider"
 
 const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: <LayoutDashboard size={20} /> },
@@ -11,13 +11,8 @@ const navItems = [
   { name: "History", href: "/dashboard/history", icon: <History size={20} /> },
 ]
 
-// useEffect(()=>{
-//   fetch("http://localhost:5000/api/")
-// })
-
-
-
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const { user } = useUser()
   const pathname = usePathname()
   const router = useRouter()
 
@@ -29,10 +24,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex min-h-screen bg-[#0d0f14] text-zinc-400">
       <aside className="w-64 border-r border-zinc-800 p-6 flex flex-col gap-2">
-        <div className="flex items-center gap-2 mb-8 px-2">
+        <div className="flex flex-col items-center gap-1 mb-8 px-2">
           <Link href="/" className="flex items-center gap-2 px-2">
             <span className="text-green-500 font-bold text-xl">TradeSim</span>
           </Link>
+          {user?.username && (
+            <span className="text-sm text-zinc-500">{user.username}</span>
+          )}
         </div>
 
         <nav className="flex flex-col gap-2 flex-1">

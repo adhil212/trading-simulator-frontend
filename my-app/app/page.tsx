@@ -37,8 +37,8 @@ export default function Home() {
           <div className="hidden md:flex gap-6 text-sm text-zinc-400 font-medium"></div>
         </div>
         <div className="flex items-center gap-4">
-          <Link href="/auth" className="text-sm font-medium hover:text-blue-400 transition-colors">Login</Link>
-          <Link href="/auth" className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-lg text-sm font-bold transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)]">
+          <Link href="/auth?mode=login" className="text-sm font-medium hover:text-blue-400 transition-colors">Login</Link>
+          <Link href="/auth?mode=register" className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-lg text-sm font-bold transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)]">
             Register
           </Link>
         </div>

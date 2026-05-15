@@ -1,157 +1,132 @@
 "use client";
+import { useParams } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
+import { 
+  createChart, 
+  CandlestickSeries, 
+  ISeriesApi, 
+  ColorType 
+} from "lightweight-charts";
+import { io, Socket } from "socket.io-client";
 
-import { useParams } from "next/navigation"
-import { useState, useEffect } from "react"
-import { ArrowLeft, TrendingUp, TrendingDown } from "lucide-react"
-import Link from "next/link"
-
-const ASSET_API_MAP: Record<string, string> = {
-  BTC: "https://api.gold-api.com/price/BTC",
-  XAG: "https://api.gold-api.com/price/XAG",
-  XAU: "https://api.gold-api.com/price/XAU",
+function formatTickIST(sec: number): string {
+  return new Date(sec * 1000).toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: false,
+  });
 }
 
-const ASSET_NAMES: Record<string, string> = {
-  BTC: "BTC/USD",
-  XAG: "XAG/USD",
-  XAU: "XAU/USD",
-}
-
-const TRADINGVIEW_SYMBOLS: Record<string, string> = {
-  BTC: "BINANCE:BTCUSDT",
-  XAG: "FX:XAGUSD",
-  XAU: "FX:XAUUSD",
+function formatLabelIST(sec: number): string {
+  return new Date(sec * 1000).toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata", day: "2-digit", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  });
 }
 
 export default function AssetDetailPage() {
-  const params = useParams()
-  const symbol = params.id as string
-  const [price, setPrice] = useState<number | null>(null)
-  const [prevPrice, setPrevPrice] = useState<number | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { id } = useParams() as { id: string };
+  const [price, setPrice] = useState<number>(0);
+  
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<any>(null);
+  const seriesRef = useRef<ISeriesApi<any> | null>(null);
+  const currentCandle = useRef<{time: number, open: number, high: number, low: number, close: number} | null>(null);
+  const socketRef = useRef<Socket | null>(null);
+
+  const timeframe = 300; // 5 minutes (seconds)
 
   useEffect(() => {
-    if (!symbol || !ASSET_API_MAP[symbol]) {
-      setLoading(false)
-      return
-    }
-
-    async function fetchPrice() {
-      try {
-        const res = await fetch(ASSET_API_MAP[symbol])
-        if (!res.ok) return
-        const data = await res.json()
-        const newPrice = Number(data.price)
-        if (isNaN(newPrice)) return
-
-        setPrevPrice(price)
-        setPrice(newPrice)
-      } catch (err) {
-        console.error(err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchPrice()
-    const interval = setInterval(fetchPrice, 1000)
-    return () => clearInterval(interval)
-  }, [symbol])
-
-  useEffect(() => {
-    if (!symbol || !TRADINGVIEW_SYMBOLS[symbol]) return
-
-    const script = document.createElement("script")
-    script.src = "https://s3.tradingview.com/tv.js"
-    script.async = true
-    script.onload = () => {
-      // @ts-expect-error TradingView is loaded globally
-      if (window.TradingView) {
-        // @ts-expect-error TradingView is loaded globally
-        new window.TradingView.widget({
-          width: "100%",
-          height: 500,
-          symbol: TRADINGVIEW_SYMBOLS[symbol],
-          interval: "15",
-          timezone: "Etc/UTC",
-          theme: "dark",
-          style: "1",
-          locale: "en",
-          toolbar_bg: "#1c1f26",
-          enable_publishing: false,
-          allow_symbol_change: false,
-          container_id: "tradingview_chart",
-          studies: ["RSI@tv-basicstudies", "MACD@tv-basicstudies"],
-        })
-      }
-    }
-
-    const container = document.getElementById("tradingview_chart")
-    if (container) container.innerHTML = ""
-
-    document.body.appendChild(script)
-
+    if (!chartContainerRef.current) return;
+    const chart = createChart(chartContainerRef.current, {
+      width: chartContainerRef.current.clientWidth,
+      height: 500,
+      layout: { 
+        background: { type: ColorType.Solid, color: '#09090b' }, 
+        textColor: '#d1d1d1',
+        attributionLogo: false,
+      },
+      localization: {
+        timeFormatter: (time: any) => formatLabelIST(time as number),
+      },
+      grid: { vertLines: { color: '#1e222d' }, horzLines: { color: '#1e222d' } },
+      timeScale: { 
+        timeVisible: true, 
+        secondsVisible: false,
+        tickMarkFormatter: (time: any) => formatTickIST(time as number),
+      },
+    });
+    chartRef.current = chart;
+    seriesRef.current = chart.addSeries(CandlestickSeries, {
+      upColor: '#22c55e', downColor: '#ef4444', borderVisible: false,
+      wickUpColor: '#22c55e', wickDownColor: '#ef4444',
+    });
+    const handleResize = () => chart.applyOptions({ width: chartContainerRef.current?.clientWidth || 0 });
+    window.addEventListener('resize', handleResize);
     return () => {
-      if (script.parentNode) script.parentNode.removeChild(script)
-    }
-  }, [symbol])
+      window.removeEventListener('resize', handleResize);
+      chart.remove();
+    };
+  }, []);
 
-  const assetName = ASSET_NAMES[symbol] || symbol
-  const isUp = price !== null && prevPrice !== null ? price >= prevPrice : true
+  useEffect(() => {
+    if (!id) return;
+    const socket = io('http://localhost:5000', {
+      transports: ['websocket'],
+    });
+    socketRef.current = socket;
+    socket.on('connect', () => {
+      console.log('Socket connected:', socket.id);
+      socket.emit('getPrice', { symbol: id });
+    });
+    socket.on('priceUpdate', (updates) => {
+      if (!updates[id] || !seriesRef.current) return;
+      
+      const priceData = updates[id];
+      const lastPrice = Number(priceData.last);
+      setPrice(lastPrice);
+      const now = Math.floor(Date.now() / 1000);
+      const candleTime = Math.floor(now / timeframe) * timeframe;
+      
+      if (!currentCandle.current || currentCandle.current.time !== candleTime) {
+        currentCandle.current = {
+          time: candleTime,
+          open: lastPrice,
+          high: lastPrice,
+          low: lastPrice,
+          close: lastPrice
+        };
+      } else {
+        currentCandle.current.high = Math.max(currentCandle.current.high, lastPrice);
+        currentCandle.current.low = Math.min(currentCandle.current.low, lastPrice);
+        currentCandle.current.close = lastPrice;
+      }
+      seriesRef.current.update(currentCandle.current as any);
+    });
+    socket.on('priceData', (result) => {
+      if (result.success && result.data) {
+        const lastPrice = Number(result.data.last);
+        setPrice(lastPrice);
+      }
+    });
+    return () => {
+      socket.off('connect');
+      socket.off('priceUpdate');
+      socket.off('priceData');
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [id]);
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-400 font-sans p-6 md:p-12">
+    <div className="min-h-screen bg-[#09090b] text-white p-8">
       <div className="max-w-6xl mx-auto">
-        <Link href="/dashboard" className="inline-flex items-center gap-2 text-zinc-500 hover:text-white mb-8 transition-colors">
-          <ArrowLeft size={20} />
-          Back to Dashboard
-        </Link>
-
-        <div className="bg-[#111318] border border-zinc-800 rounded-[2.5rem] p-8 shadow-2xl">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center border border-zinc-700 font-bold text-white">
-                {symbol?.[0] || "?"}
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-white">{assetName}</h1>
-                <p className="text-zinc-500 text-sm">Symbol: {symbol}</p>
-              </div>
-            </div>
-
-            {price && (
-              <div className="text-right">
-                <div className="text-4xl font-bold text-white">
-                  ${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
-                </div>
-                <div className={`flex items-center justify-end text-sm font-bold mt-1 ${isUp ? "text-green-400" : "text-red-400"}`}>
-                  {isUp ? <TrendingUp size={16} className="mr-1" /> : <TrendingDown size={16} className="mr-1" />}
-                  {prevPrice ? ((price - prevPrice) / prevPrice * 100).toFixed(2) : "0.00"}%
-                </div>
-              </div>
-            )}
-          </div>
-
-          {loading ? (
-            <div className="h-[500px] flex items-center justify-center">
-              <p className="text-zinc-500">Loading chart...</p>
-            </div>
-          ) : (
-            <div className="rounded-2xl overflow-hidden border border-zinc-800">
-              <div id="tradingview_chart" className="w-full" style={{ height: "500px" }} />
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-4 mt-6">
-            <button className="py-3 rounded-2xl border border-green-500/50 text-green-400 font-bold hover:bg-green-500/20 transition-all">
-              Buy
-            </button>
-            <button className="py-3 rounded-2xl border border-red-500/50 text-red-400 font-bold hover:bg-red-500/20 transition-all">
-              Sell
-            </button>
+        <div className="flex flex-col md:flex-row justify-between items-end mb-6 gap-4">
+          <div>
+            <h1 className="text-sm text-zinc-500 uppercase tracking-widest">Live Market</h1>
+            <div className="text-4xl font-mono font-bold">${price.toFixed(2)}</div>
           </div>
         </div>
+        <div ref={chartContainerRef} className="rounded-xl border border-zinc-800 overflow-hidden" />
       </div>
     </div>
-  )
+  );
 }

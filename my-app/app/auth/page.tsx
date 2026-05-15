@@ -4,8 +4,10 @@ import { useRouter } from "next/navigation";
 
 import { Eye, EyeOff, LogOut, LayoutDashboard } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useUser } from "../UserProvider"
 
 export default function Page() {
+  const { user, setUser } = useUser()
   const [isRegistering, setIsRegistering] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState("");
@@ -17,6 +19,11 @@ export default function Page() {
   const router = useRouter()
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get("mode") === "register") {
+      setIsRegistering(true)
+    }
+
     const token = localStorage.getItem("token")
     const userStr = localStorage.getItem("user")
     if (token && userStr) {
@@ -89,11 +96,12 @@ async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
 
         // optional: store user
         if (data.user) {
-          localStorage.setItem("user", JSON.stringify(data.user));
+          
+          setUser(data.user)
         }
 
        
-        // window.location.href = "/dashboard";
+        window.location.href = "/dashboard";
       }
     } catch (err: any) {
       console.error(err.message);
