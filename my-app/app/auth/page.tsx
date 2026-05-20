@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { useState, useCallback } from "react";
+import { GoogleLogin } from "@react-oauth/google";
 import { useUser } from "../UserProvider"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
@@ -209,6 +210,37 @@ async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
             {isRegistering ? "Create account" : "Continue"}
           </button>
         </form>
+
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-zinc-700" />
+          </div>
+          <div className="relative flex justify-center text-xs text-zinc-500">
+            <span className="bg-neutral-900 px-3">or continue with</span>
+          </div>
+        </div>
+
+        <div className="flex justify-center mb-6">
+          <GoogleLogin
+            onSuccess={async (credentialResponse) => {
+              setError("")
+              try {
+                const res = await fetch(`${API_URL}/api/auth/google`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ idToken: credentialResponse.credential }),
+                })
+                const data = await res.json()
+                if (!res.ok) throw new Error(data.error || "Google login failed")
+                persistSession(data)
+                router.push("/dashboard")
+              } catch (err: unknown) {
+                setError(getErrorMessage(err, "Google sign-in failed"))
+              }
+            }}
+            onError={() => setError("Google sign-in failed")}
+          />
+        </div>
 
         <div className="flex flex-wrap justify-center gap-x-8 gap-y-3 text-xs text-neutral-400">
           <Link href="/">
