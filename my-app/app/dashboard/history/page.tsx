@@ -37,7 +37,7 @@ const filters = [
 ]
 
 export default function HistoryPage() {
-  const [filter, setFilter] = useState(0)
+  const [filter, setFilter] = useState(1)
   const [trades, setTrades] = useState<ApiClosedTrade[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")

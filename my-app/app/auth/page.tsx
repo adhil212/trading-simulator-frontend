@@ -1,120 +1,116 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-
-import { Eye, EyeOff, LogOut, LayoutDashboard } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Eye, EyeOff } from "lucide-react";
+import { useState, useCallback } from "react";
 import { useUser } from "../UserProvider"
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+
+type AuthUser = {
+  id: number
+  username: string
+  email: string
+}
+
+type AuthResponse = {
+  message?: string
+  error?: string
+  token?: string
+  user?: AuthUser
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback
+}
+
 export default function Page() {
-  const { user, setUser } = useUser()
-  const [isRegistering, setIsRegistering] = useState(false);
+  const { setUser } = useUser()
+  const [isRegistering, setIsRegistering] = useState(() => {
+    if (typeof window === "undefined") return false
+    return new URLSearchParams(window.location.search).get("mode") === "register"
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [email, setEmail] = useState("");
-  const [realname, setuserealname] = useState("")
-  const [userlogined, setuserlogined] = useState(false)
-  const [loggedUser, setLoggedUser] = useState<{username?: string, email?: string} | null>(null)
+  const [error, setError] = useState("")
+  const [message, setMessage] = useState("")
   const router = useRouter()
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    if (params.get("mode") === "register") {
-      setIsRegistering(true)
+  const persistSession = useCallback((data: AuthResponse) => {
+    if (!data.token) {
+      throw new Error("No token returned from server")
     }
 
-    const token = localStorage.getItem("token")
-    const userStr = localStorage.getItem("user")
-    if (token && userStr) {
-      const user = JSON.parse(userStr)
-      setLoggedUser(user)
-      setuserealname(user.username || "")
-      setuserlogined(true)
+    localStorage.setItem("token", data.token)
+    if (data.user) {
+      setUser(data.user)
+      localStorage.setItem("user", JSON.stringify(data.user))
+      if (data.user.username) {
+        localStorage.setItem("username", data.user.username)
+      }
     }
-  }, [])
+  }, [setUser])
+
 async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    
+    setError("")
+    setMessage("")
 
     try {
-      if (isRegistering) {
-        const res = await fetch("http://localhost:5000/api/auth/register", {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-          },
-          body: JSON.stringify({
-            username,
-            email,
-            password,
-          }),
-        });
+      const endpoint = isRegistering
+        ? `${API_URL}/api/auth/register`
+        : `${API_URL}/api/auth/login`
 
-        const data = await res.json();
+      const body = isRegistering
+        ? { username, email, password }
+        : { email, password }
 
-        if (!res.ok) {
-          throw new Error(data.message || "Registration failed");
-        }
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      })
 
-        console.log("Registered:", data);
+      const data = await res.json() as AuthResponse
 
-       
-        setIsRegistering(false);
-      } else {
-        const res = await fetch("http://localhost:5000/api/auth/login", {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-          },
-          body: JSON.stringify({
-            email,
-            password,
-          }),
-        });
-
-        const data = await res.json();
-
-        const user=data.user.username
-        setuserealname(user)
-        
-
-        if (!res.ok) {
-          throw new Error(data.message || "Login failed");
-        }
-
-        // 🔥 IMPORTANT: store token
-        if (data.token) {
-          localStorage.setItem("token", data.token);
-          setuserlogined(true)
-        } else if (data.accessToken) {
-          
-          localStorage.setItem("token", data.accessToken);
-        } else {
-          throw new Error("No token returned from server");
-        }
-
-        // optional: store user
-        if (data.user) {
-          
-          setUser(data.user)
-        }
-
-       
-        window.location.href = "/dashboard";
+      if (!res.ok) {
+        throw new Error(data.error || data.message || (isRegistering ? "Registration failed" : "Login failed"))
       }
-    } catch (err: any) {
-      console.error(err.message);
-      alert(err.message); 
-    } finally {
-    
+
+      if (isRegistering) {
+        setMessage(data.message || "Registration successful")
+        setIsRegistering(false)
+        setPassword("")
+        return
+      }
+
+      persistSession(data)
+
+      router.push("/dashboard")
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Something went wrong"))
     }
   }
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-neutral-950 px-4 py-10 font-sans text-white selection:bg-blue-500/30">
       <section className="w-full max-w-[400px] rounded-2xl border border-white/10 bg-neutral-900 p-6 shadow-2xl shadow-black/40 sm:p-8">
-        <h1 className="mb-8 text-center text-3xl font-semibold">{realname?realname:"Trading Sim"}</h1>
+        <h1 className="mb-8 text-center text-3xl font-semibold">
+          {isRegistering ? "Create Account" : "Welcome Back"}
+        </h1>
+
+        {error && (
+          <div className="mb-4 rounded-xl bg-red-500/10 border border-red-500/30 px-4 py-3 text-sm text-red-400">
+            {error}
+          </div>
+        )}
+        {message && (
+          <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+            {message}
+          </div>
+        )}
 
         <div className="mb-8 grid grid-cols-2 rounded-xl bg-neutral-800 p-1">
           <button
@@ -213,29 +209,6 @@ async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
             {isRegistering ? "Create account" : "Continue"}
           </button>
         </form>
-
-        <div className="my-8 flex items-center gap-4">
-          <div className="h-px flex-1 bg-neutral-800" />
-          <span className="text-xs font-medium uppercase text-neutral-500">
-            or continue with
-          </span>
-          <div className="h-px flex-1 bg-neutral-800" />
-        </div>
-
-        <div className="mb-8 flex justify-center gap-4">
-          <button
-            type="button"
-            aria-label="Continue with Google"
-            className="rounded-lg p-2 text-white/80 transition hover:bg-white/5 hover:text-white"
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                fill="currentColor"
-                d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C20.187 1.44 17.4 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"
-              />
-            </svg>
-          </button>
-        </div>
 
         <div className="flex flex-wrap justify-center gap-x-8 gap-y-3 text-xs text-neutral-400">
           <Link href="/">

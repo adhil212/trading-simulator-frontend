@@ -1,25 +1,46 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { LayoutDashboard, Briefcase, History, LogOut } from "lucide-react"
-import { useUser } from "../UserProvider"
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  LayoutDashboard,
+  Briefcase,
+  History,
+  LogOut,
+  UserCircle,
+} from "lucide-react";
+import { useUser } from "../UserProvider";
 
 const navItems = [
-  { name: "Dashboard", href: "/dashboard", icon: <LayoutDashboard size={20} /> },
-  { name: "Portfolio", href: "/dashboard/portfolio", icon: <Briefcase size={20} /> },
+  {
+    name: "Dashboard",
+    href: "/dashboard",
+    icon: <LayoutDashboard size={20} />,
+  },
+  {
+    name: "Portfolio",
+    href: "/dashboard/portfolio",
+    icon: <Briefcase size={20} />,
+  },
   { name: "History", href: "/dashboard/history", icon: <History size={20} /> },
-]
+];
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user } = useUser()
-  const pathname = usePathname()
-  const router = useRouter()
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const { user, setUser } = useUser();
+  const pathname = usePathname();
+  const router = useRouter();
 
   const handleLogout = () => {
-    localStorage.removeItem("token")
-    router.push("/auth")
-  }
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("username");
+    setUser(null);
+    router.push("/auth");
+  };
 
   return (
     <div className="flex min-h-screen bg-[#0d0f14] text-zinc-400">
@@ -28,14 +49,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Link href="/" className="flex items-center gap-2 px-2">
             <span className="text-green-500 font-bold text-xl">TradeSim</span>
           </Link>
-          {user?.username && (
-            <span className="text-sm text-zinc-500">{user.username}</span>
-          )}
+          <Link href="/auth">
+            <UserCircle size={23} />
+          </Link>
+          {user?.username && <span>{user.username}</span>}
         </div>
+        
 
         <nav className="flex flex-col gap-2 flex-1">
           {navItems.map((item) => {
-            const isActive = pathname === item.href
+            const isActive = pathname === item.href;
             return (
               <Link
                 key={item.href}
@@ -49,7 +72,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {item.icon}
                 <span className="font-medium">{item.name}</span>
               </Link>
-            )
+            );
           })}
         </nav>
 
@@ -64,5 +87,5 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       <main className="flex-1 overflow-y-auto">{children}</main>
     </div>
-  )
+  );
 }

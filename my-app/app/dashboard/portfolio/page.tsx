@@ -101,7 +101,7 @@ export default function PortfolioPage() {
       </div>
     )
   }
-
+    
   if (error) {
     return (
       <div className="min-h-screen bg-[#09090b] text-zinc-400 p-6 md:p-12 flex items-center justify-center">
