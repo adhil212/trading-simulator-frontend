@@ -87,10 +87,14 @@ export default function HistoryPage() {
     }
   })
 
+  const totalPnl = displayTrades.reduce((sum, t) => sum + t.pnl, 0)
+  const winTrades = displayTrades.filter((t) => t.pnl >= 0).length
+  const lossTrades = displayTrades.filter((t) => t.pnl < 0).length
+
   const download = () => {
     let csv = "Asset,Quantity,Entry Price,Exit Price,P&L,P&L%,Period\n"
     displayTrades.forEach((t) => {
-      csv += `${t.asset},${t.qty},$${t.entryPrice},$${t.exitPrice},$${t.pnlFormatted},${t.pnlPercent}%,${t.time}\n`
+      csv += `${t.asset},${t.qty},₹${t.entryPrice},₹${t.exitPrice},₹${t.pnlFormatted},${t.pnlPercent}%,${t.time}\n`
     })
     const blob = new Blob([csv], { type: "text/csv" })
     const url = URL.createObjectURL(blob)
@@ -173,11 +177,11 @@ export default function HistoryPage() {
                       </div>
                     </td>
                     <td className="px-8 py-6 text-zinc-300">{t.qty}</td>
-                    <td className="px-8 py-6 text-zinc-300">${t.entryPrice}</td>
-                    <td className="px-8 py-6 text-zinc-300">${t.exitPrice}</td>
+                    <td className="px-8 py-6 text-zinc-300">₹{t.entryPrice}</td>
+                    <td className="px-8 py-6 text-zinc-300">₹{t.exitPrice}</td>
                     <td className="px-8 py-6">
                       <span className={`font-bold ${t.pnl >= 0 ? "text-green-400" : "text-red-400"}`}>
-                        {t.pnl >= 0 ? "+" : ""}${t.pnlFormatted}
+                        {t.pnl >= 0 ? "+" : ""}₹{t.pnlFormatted}
                       </span>
                       <span className={`ml-2 text-xs ${t.pnl >= 0 ? "text-green-400/70" : "text-red-400/70"}`}>
                         ({t.pnl >= 0 ? "+" : ""}{t.pnlPercent}%)
@@ -191,7 +195,25 @@ export default function HistoryPage() {
           </div>
 
           <div className="p-6 border-t border-zinc-800 bg-[#0d0f14]">
-            <p className="text-xs text-zinc-600">Showing {displayTrades.length} of {trades.length} trades</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-zinc-600">Showing {displayTrades.length} of {trades.length} trades</p>
+              <div className="flex items-center gap-8">
+                <div className="text-right">
+                  <p className="text-xs text-zinc-600 uppercase tracking-wider">Total P&L</p>
+                  <p className={`text-lg font-bold ${totalPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+                    {totalPnl >= 0 ? "+" : ""}₹{formatPrice(totalPnl)}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-zinc-600 uppercase tracking-wider">Win / Loss</p>
+                  <p className="text-lg font-bold">
+                    <span className="text-green-400">{winTrades}</span>
+                    <span className="text-zinc-600"> / </span>
+                    <span className="text-red-400">{lossTrades}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

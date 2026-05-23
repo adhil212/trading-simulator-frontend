@@ -1,7 +1,10 @@
 "use client"
 
 import Link from "next/link"
+import { useEffect, useState } from "react"
 import { Play, Rocket, BarChart3, LineChart, PieChart } from "lucide-react"
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
 
 const features = [
   {
@@ -22,13 +25,49 @@ const features = [
 ]
 
 const stats = [
-  { value: "$4.2B+", label: "SIMULATED VOLUME" },
+  { value: "₹4.2B+", label: "SIMULATED VOLUME" },
   { value: "50k+", label: "ACTIVE TRADERS" },
   { value: "200+", label: "ASSETS SUPPORTED" },
   { value: "0.1ms", label: "LATENCY" }
 ]
 
 export default function Home() {
+  const [prices, setPrices] = useState<Record<string, {
+    symbol: string; last: number; changePercent: number; bid: number; ask: number
+  }> | null>(null)
+
+  useEffect(() => {
+    function fetchPrices() {
+      fetch(`${API_URL}/api/market/prices`)
+        .then((r) => r.json())
+        .then((d) => { if (d.success) setPrices(d.data) })
+        .catch(() => {})
+    }
+    fetchPrices()
+    const id = setInterval(fetchPrices, 30000)
+    return () => clearInterval(id)
+  }, [])
+
+  const btc = prices?.BTC_USD
+  const lastPrice = btc
+    ? btc.last.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : "68,421.30"
+  const changePercent = btc?.changePercent ?? 2.84
+  const isPositive = changePercent >= 0
+  const bidLevels = btc
+    ? [
+        { price: btc.bid, size: 0.52 },
+        { price: btc.bid - btc.bid * 0.0001, size: 0.34 },
+        { price: btc.bid - btc.bid * 0.0002, size: 0.21 },
+        { price: btc.bid - btc.bid * 0.0003, size: 0.45 },
+      ]
+    : [
+        { price: 68421.3, size: 0.52 },
+        { price: 68420.1, size: 0.34 },
+        { price: 68418.45, size: 0.21 },
+        { price: 68415.2, size: 0.45 },
+      ]
+
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-blue-500/30">
       <nav className="flex justify-between items-center px-8 py-6 max-w-7xl mx-auto border-b border-white/5">
@@ -46,7 +85,7 @@ export default function Home() {
 
       <section className="max-w-7xl mx-auto px-8 py-24 grid lg:grid-cols-2 gap-16 items-center">
         <div className="space-y-8">
-          <div className="inline-flex items-center gap-2 bg-green-500/10 border border-green-500/20 text-green-400 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest">
+          <div className="inline-flex items-center gap-2 bg-green-500/10 border border-green-500/20 text-green-400 px-3 py-1 rounded-sm text-[10px] font-bold uppercase tracking-widest">
             <Rocket size={12} /> Live Simulation Engine 
           </div>
           <h1 className="text-7xl font-bold leading-[1.1] tracking-tight">
@@ -83,11 +122,15 @@ export default function Home() {
                <div className="relative rounded-2xl bg-black/40 border border-white/5 overflow-hidden p-4">
                  <div className="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,#ffffff_1px,transparent_1px),linear-gradient(to_bottom,#ffffff_1px,transparent_1px)] bg-[size:44px_36px]"></div>
                  <div className="relative flex items-start justify-between mb-6">
-                   <div>
-                     <p className="text-xs text-zinc-500 font-mono">BTC/USD</p>
-                     <p className="text-2xl font-black text-white">$68,421.30</p>
-                   </div>
-                   <span className="text-xs font-bold text-green-400 bg-green-500/10 px-2 py-1 rounded-md">+2.84%</span>
+                    <div>
+                      <p className="text-xs text-zinc-500 font-mono">BTC/USD</p>
+                      <p className="text-2xl font-black text-white">₹{lastPrice}</p>
+                    </div>
+                    <span className={`text-xs font-bold px-2 py-1 rounded-md ${
+                      isPositive
+                        ? "text-green-400 bg-green-500/10"
+                        : "text-red-400 bg-red-500/10"
+                    }`}>{isPositive ? "+" : ""}{changePercent.toFixed(2)}%</span>
                  </div>
                  <div className="relative h-48">
                    <div className="absolute bottom-4 left-0 right-0 h-28 border-l-2 border-b-2 border-green-400/80 skew-y-[-10deg] rounded-bl-xl"></div>
@@ -107,16 +150,16 @@ export default function Home() {
                <div className="grid gap-4">
                  <div className="rounded-2xl bg-black/40 border border-white/5 p-4">
                    <p className="text-xs text-zinc-500 font-mono mb-3">ORDER BOOK</p>
-                   {["68,421.30", "68,420.10", "68,418.45", "68,415.20"].map((price) => (
-                     <div key={price} className="flex justify-between text-xs font-mono py-1 border-b border-white/5 last:border-0">
-                       <span className="text-green-400">{price}</span>
-                       <span className="text-zinc-500">0.{Math.floor(Number(price.slice(-2)) + 31)} BTC</span>
-                     </div>
-                   ))}
+                    {bidLevels.map((level) => (
+                      <div key={level.price} className="flex justify-between text-xs font-mono py-1 border-b border-white/5 last:border-0">
+                        <span className="text-green-400">{level.price.toFixed(2)}</span>
+                        <span className="text-zinc-500">{level.size.toFixed(2)} BTC</span>
+                      </div>
+                    ))}
                  </div>
                  <div className="rounded-2xl bg-blue-600/10 border border-blue-400/20 p-4">
                    <p className="text-xs text-blue-300 font-mono mb-2">PORTFOLIO</p>
-                   <p className="text-3xl font-black">$124,908</p>
+                   <p className="text-3xl font-black">₹124,908</p>
                    <div className="mt-4 h-2 rounded-full bg-white/10 overflow-hidden">
                      <div className="h-full w-3/4 bg-blue-500"></div>
                    </div>

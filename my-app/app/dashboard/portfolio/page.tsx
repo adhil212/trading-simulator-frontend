@@ -30,6 +30,7 @@ export default function PortfolioPage() {
   const [data, setData] = useState<PortfolioData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [growth, setGrowth] = useState<any>(null)
 
   useEffect(() => {
     const token = localStorage.getItem("token")
@@ -94,6 +95,17 @@ export default function PortfolioPage() {
     return () => { socket.disconnect() }
   }, [])
 
+  useEffect(() => {
+    const token = localStorage.getItem("token")
+    if (!token) return
+    fetch("http://localhost:5000/api/portfolio/growth?days=1", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then(d => { if (d.growthData) setGrowth(d) })
+      .catch(() => {})
+  }, [])
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#09090b] text-zinc-400 p-6 md:p-12 flex items-center justify-center">
@@ -128,7 +140,7 @@ export default function PortfolioPage() {
           <div className="bg-[#111318] border border-zinc-800 rounded-2xl p-8">
             <p className="text-zinc-500 text-sm mb-2">Total Value</p>
             <div className="flex items-baseline gap-3">
-              <span className="text-5xl font-bold text-green-400">${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              <span className="text-5xl font-bold text-green-400">₹{totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
             </div>
           </div>
 
@@ -136,12 +148,51 @@ export default function PortfolioPage() {
             <p className="text-zinc-500 text-sm mb-2">Daily P&L</p>
             <div className="flex items-center gap-3">
               <span className={`text-5xl font-bold ${pnlUp ? "text-green-400" : "text-red-400"}`}>
-                {pnlUp ? "+" : ""}${totalPnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {pnlUp ? "+" : ""}₹{totalPnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </span>
               {pnlUp ? <TrendingUp className="text-green-400" size={32} /> : <TrendingDown className="text-red-400" size={32} />}
             </div>
           </div>
         </div>
+
+        {/* Growth chart - temporarily disabled
+        {growth?.growthData && growth.growthData.length > 1 && (
+          <div className="bg-[#111318] border border-zinc-800 rounded-2xl p-6 mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-white font-bold text-lg">Portfolio Growth</h2>
+              <span className="text-zinc-500 text-sm">{growth.period}</span>
+            </div>
+            <svg viewBox="0 0 600 200" className="w-full h-48" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="growthGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#22c55e" stopOpacity="0.25" />
+                  <stop offset="100%" stopColor="#22c55e" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              {(() => {
+                const vals = growth.growthData.map((d: any) => d.balance)
+                const mn = Math.min(...vals); const mx = Math.max(...vals)
+                const rng = mx - mn || 1; const pad = 10; const w = 600; const h = 200
+                const pw = w - pad * 2; const ph = h - pad * 2
+                const pts = growth.growthData.map((d: any, i: number) => ({
+                  x: pad + (i / (growth.growthData.length - 1)) * pw,
+                  y: pad + ph - ((d.balance - mn) / rng) * ph,
+                }))
+                const line = pts.map((p: any, i: number) => `${i === 0 ? 'M' : 'L'}${p.x} ${p.y}`).join(' ')
+                return (
+                  <>
+                    <path d={`${line} L${pts[pts.length - 1].x} ${h} L${pts[0].x} ${h} Z`} fill="url(#growthGrad)" />
+                    <path d={line} fill="none" stroke="#22c55e" strokeWidth="2" strokeLinejoin="round" />
+                    {[pts[0], pts[pts.length - 1]].map((p, i) => (
+                      <circle key={i} cx={p.x} cy={p.y} r="4" fill="#22c55e" stroke="#09090b" strokeWidth="2" />
+                    ))}
+                  </>
+                )
+              })()}
+            </svg>
+          </div>
+        )}
+        */}
 
         <div className="bg-[#111318] border border-zinc-800 rounded-2xl overflow-hidden">
           <table className="w-full text-left">
@@ -159,10 +210,10 @@ export default function PortfolioPage() {
                 <tr key={i} className="border-b border-zinc-800/50 hover:bg-zinc-800/20">
                   <td className="px-8 py-6 text-white font-medium">{a.symbol.replace(/_/g, "/")}</td>
                   <td className="px-8 py-6 text-zinc-300">{a.quantity.toLocaleString()}</td>
-                  <td className="px-8 py-6 text-zinc-300">${a.entryPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                  <td className="px-8 py-6 text-zinc-300">${a.currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                  <td className="px-8 py-6 text-zinc-300">₹{a.entryPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                  <td className="px-8 py-6 text-zinc-300">₹{a.currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                   <td className={`px-8 py-6 text-right font-bold flex justify-end items-center gap-2 ${a.unrealizedPnL >= 0 ? "text-green-400" : "text-red-400"}`}>
-                    {a.unrealizedPnL >= 0 ? "+" : ""}${a.unrealizedPnL.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    {a.unrealizedPnL >= 0 ? "+" : ""}₹{a.unrealizedPnL.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     {a.unrealizedPnL >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
                   </td>
                 </tr>

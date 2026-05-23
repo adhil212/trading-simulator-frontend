@@ -1,49 +1,29 @@
 "use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
-import { useState, useCallback } from "react";
-import { GoogleLogin } from "@react-oauth/google";
+import { useState, Suspense } from "react";
+import { GoogleLogin, type CredentialResponse } from "@react-oauth/google";
 import { useUser } from "../UserProvider"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
 
-type AuthUser = {
-  id: number
-  username: string
-  email: string
-}
-
-type AuthResponse = {
-  message?: string
-  error?: string
-  token?: string
-  user?: AuthUser
-}
-
-function getErrorMessage(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback
-}
-
-export default function Page() {
+function AuthForm() {
   const { setUser } = useUser()
-  const [isRegistering, setIsRegistering] = useState(() => {
-    if (typeof window === "undefined") return false
-    return new URLSearchParams(window.location.search).get("mode") === "register"
-  });
-  const [showPassword, setShowPassword] = useState(false);
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [email, setEmail] = useState("");
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  const [isRegistering, setIsRegistering] = useState(searchParams.get("mode") === "register")
+  const [showPassword, setShowPassword] = useState(false)
+  const [username, setUsername] = useState("")
+  const [password, setPassword] = useState("")
+  const [email, setEmail] = useState("")
   const [error, setError] = useState("")
   const [message, setMessage] = useState("")
-  const router = useRouter()
+  const [submitting, setSubmitting] = useState(false)
 
-  const persistSession = useCallback((data: AuthResponse) => {
-    if (!data.token) {
-      throw new Error("No token returned from server")
-    }
-
+  function persistSession(data: { token?: string; user?: { id: number; username: string; email: string } }) {
+    if (!data.token) throw new Error("No token returned from server")
     localStorage.setItem("token", data.token)
     if (data.user) {
       setUser(data.user)
@@ -52,12 +32,13 @@ export default function Page() {
         localStorage.setItem("username", data.user.username)
       }
     }
-  }, [setUser])
+  }
 
-async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
     setError("")
     setMessage("")
+    setSubmitting(true)
 
     try {
       const endpoint = isRegistering
@@ -74,7 +55,7 @@ async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         body: JSON.stringify(body),
       })
 
-      const data = await res.json() as AuthResponse
+      const data = await res.json()
 
       if (!res.ok) {
         throw new Error(data.error || data.message || (isRegistering ? "Registration failed" : "Login failed"))
@@ -88,10 +69,28 @@ async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
       }
 
       persistSession(data)
-
       router.push("/dashboard")
     } catch (err: unknown) {
-      setError(getErrorMessage(err, "Something went wrong"))
+      setError(err instanceof Error ? err.message : "Something went wrong")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function handleGoogle(credentialResponse: CredentialResponse) {
+    setError("")
+    try {
+      const res = await fetch(`${API_URL}/api/auth/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken: credentialResponse.credential }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Google login failed")
+      persistSession(data)
+      router.push("/dashboard")
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Google sign-in failed")
     }
   }
 
@@ -103,7 +102,7 @@ async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         </h1>
 
         {error && (
-          <div className="mb-4 rounded-xl bg-red-500/10 border border-red-500/30 px-4 py-3 text-sm text-red-400">
+          <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
             {error}
           </div>
         )}
@@ -141,10 +140,7 @@ async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         <form onSubmit={handleSubmit} className="space-y-5">
           {isRegistering && (
             <div className="space-y-2">
-              <label
-                htmlFor="username"
-                className="ml-1 block text-xs font-medium text-neutral-400"
-              >
+              <label htmlFor="username" className="ml-1 block text-xs font-medium text-neutral-400">
                 Username
               </label>
               <input
@@ -159,10 +155,7 @@ async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
           )}
 
           <div className="space-y-2">
-            <label
-              htmlFor="email"
-              className="ml-1 block text-xs font-medium text-neutral-400"
-            >
+            <label htmlFor="email" className="ml-1 block text-xs font-medium text-neutral-400">
               Email
             </label>
             <input
@@ -176,10 +169,7 @@ async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
           </div>
 
           <div className="space-y-2">
-            <label
-              htmlFor="password"
-              className="ml-1 block text-xs font-medium text-neutral-400"
-            >
+            <label htmlFor="password" className="ml-1 block text-xs font-medium text-neutral-400">
               Password
             </label>
             <div className="relative">
@@ -194,8 +184,7 @@ async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
               <button
                 type="button"
                 aria-label={showPassword ? "Hide password" : "Show password"}
-                title={showPassword ? "Hide password" : "Show password"}
-                onClick={() => setShowPassword((value) => !value)}
+                onClick={() => setShowPassword((v) => !v)}
                 className="absolute right-3 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-neutral-400 transition hover:bg-white/5 hover:text-white"
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -205,9 +194,10 @@ async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
 
           <button
             type="submit"
-            className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition hover:bg-blue-500 active:scale-[0.99]"
+            disabled={submitting}
+            className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition hover:bg-blue-500 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isRegistering ? "Create account" : "Continue"}
+            {submitting ? "Please wait..." : isRegistering ? "Create account" : "Continue"}
           </button>
         </form>
 
@@ -220,33 +210,16 @@ async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
           </div>
         </div>
 
-        <div className="flex justify-center mb-6">
+        <div className="mb-6 flex justify-center">
           <GoogleLogin
-            onSuccess={async (credentialResponse) => {
-              setError("")
-              try {
-                const res = await fetch(`${API_URL}/api/auth/google`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ idToken: credentialResponse.credential }),
-                })
-                const data = await res.json()
-                if (!res.ok) throw new Error(data.error || "Google login failed")
-                persistSession(data)
-                router.push("/dashboard")
-              } catch (err: unknown) {
-                setError(getErrorMessage(err, "Google sign-in failed"))
-              }
-            }}
+            onSuccess={handleGoogle}
             onError={() => setError("Google sign-in failed")}
           />
         </div>
 
         <div className="flex flex-wrap justify-center gap-x-8 gap-y-3 text-xs text-neutral-400">
-          <Link href="/">
-            <button className="transition hover:text-white">
-              return to home
-            </button>
+          <Link href="/" className="transition hover:text-white">
+            return to home
           </Link>
 
           <button type="button" className="transition hover:text-white">
@@ -255,5 +228,13 @@ async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         </div>
       </section>
     </main>
-  );
+  )
+}
+
+export default function Page() {
+  return (
+    <Suspense>
+      <AuthForm />
+    </Suspense>
+  )
 }

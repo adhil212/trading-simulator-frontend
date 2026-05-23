@@ -162,30 +162,30 @@ export default function AssetDetailPage() {
   }, [id]);
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-white p-8">
+    <div className="min-h-screen bg-[#09090b] text-white p-3 sm:p-6 md:p-8">
       <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col md:flex-row justify-between items-end mb-6 gap-4">
-          <div className="flex items-end gap-4">
-            <div>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-3 md:gap-4">
+          <div className="flex flex-wrap items-end gap-3 w-full md:w-auto">
+            <div className="min-w-0 flex-1 md:flex-none">
               <h1 className="text-sm text-zinc-500 uppercase tracking-widest">Live Market</h1>
-              <div className="text-4xl font-mono font-bold">${price.toFixed(2)}</div>
+              <div className="text-2xl sm:text-3xl md:text-4xl font-mono font-bold truncate">₹{price.toFixed(2)}</div>
             </div>
-            <div className="flex gap-2 pb-1">
+            <div className="flex gap-2 pb-1 shrink-0">
               <button
                 onClick={() => setTrade({ type: "BUY", quantity: "0" })}
-                className="px-4 py-2 rounded-xl border border-green-500/50 text-green-400 font-bold hover:bg-green-500/20 transition-all text-sm"
+                className="px-3 sm:px-4 py-2 rounded-xl border border-green-500/50 text-green-400 font-bold hover:bg-green-500/20 transition-all text-xs sm:text-sm"
               >
                 Buy
               </button>
               <button
                 onClick={() => setTrade({ type: "SELL", quantity: "0" })}
-                className="px-4 py-2 rounded-xl border border-red-500/50 text-red-400 font-bold hover:bg-red-500/20 transition-all text-sm"
+                className="px-3 sm:px-4 py-2 rounded-xl border border-red-500/50 text-red-400 font-bold hover:bg-red-500/20 transition-all text-xs sm:text-sm"
               >
                 Sell
               </button>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-1.5 sm:gap-2 w-full md:w-auto">
             {TIMEFRAMES.map((tf) => (
               <button
                 key={tf.value}
@@ -203,12 +203,12 @@ export default function AssetDetailPage() {
         </div>
 
         {trade && (
-          <div className="mb-4 p-4 rounded-xl bg-zinc-900 border border-zinc-700 max-w-xs">
+          <div className="mb-4 p-4 rounded-xl bg-zinc-900 border border-zinc-700 w-full sm:w-auto sm:max-w-xs">
             <div className="flex items-center justify-between mb-3">
               <span className={`font-bold ${trade.type === "BUY" ? "text-green-400" : "text-red-400"}`}>
                 {trade.type} {id.replace(/_/g, "/")}
               </span>
-              <span className="text-xs text-zinc-500">~${(parseFloat(trade.quantity || "0") * price).toFixed(2)}</span>
+              <span className="text-xs text-zinc-500">~₹{(parseFloat(trade.quantity || "0") * price).toFixed(2)}</span>
             </div>
             <input
               type="number"
@@ -241,7 +241,7 @@ export default function AssetDetailPage() {
           </div>
         )}
 
-        <div ref={chartContainerRef} className="rounded-xl border border-zinc-800 overflow-hidden" />
+        <div ref={chartContainerRef} className="rounded-xl border border-zinc-800 overflow-hidden max-w-full" />
       </div>
     </div>
   );

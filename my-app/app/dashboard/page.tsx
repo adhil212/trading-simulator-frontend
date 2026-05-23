@@ -223,6 +223,21 @@ export default function DashboardPage() {
     refetchBalance()
   }, [])
 
+  // Fetch performance metrics
+  useEffect(() => {
+    const token = localStorage.getItem("token")
+    if (!token) return
+    fetch("http://localhost:5000/api/trading/performance", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.totalTrades !== undefined) setPerformance(d)
+      })
+      .catch(() => {})
+  }, [])
+   
+  const [performance, setPerformance] = useState<any>(null)
   const [positions, setPositions] = useState<Record<string, number>>({})
   const [trade, setTrade] = useState<{ symbol: string; type: "BUY" | "SELL"; quantity: string } | null>(null)
   const [trading, setTrading] = useState(false)
@@ -285,8 +300,8 @@ export default function DashboardPage() {
           Balance:{" "}
           <span className="text-green-400">
             {balance !== null
-              ? `$${Number(balance).toLocaleString()}`
-              : "$0"}
+              ? `₹${Number(balance).toLocaleString()}`
+              : "₹0"}
           </span>
         </h1>
         <div className="flex gap-2 pb-1">
@@ -460,6 +475,29 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {performance && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-[#1c1f26] border border-zinc-800 rounded-2xl p-5">
+            <p className="text-zinc-500 text-xs uppercase tracking-wider mb-1">Win Rate</p>
+            <p className="text-2xl font-bold text-white">{performance.winRate}</p>
+          </div>
+          <div className="bg-[#1c1f26] border border-zinc-800 rounded-2xl p-5">
+            <p className="text-zinc-500 text-xs uppercase tracking-wider mb-1">Total Trades</p>
+            <p className="text-2xl font-bold text-white">{performance.totalTrades}</p>
+          </div>
+          <div className="bg-[#1c1f26] border border-zinc-800 rounded-2xl p-5">
+            <p className="text-zinc-500 text-xs uppercase tracking-wider mb-1">Realized P&L</p>
+            <p className={`text-2xl font-bold ${parseFloat(performance.totalRealizedPnL) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              {parseFloat(performance.totalRealizedPnL) >= 0 ? '+' : ''}₹{parseFloat(performance.totalRealizedPnL).toLocaleString()}
+            </p>
+          </div>
+          <div className="bg-[#1c1f26] border border-zinc-800 rounded-2xl p-5">
+            <p className="text-zinc-500 text-xs uppercase tracking-wider mb-1">Best Trade</p>
+            <p className="text-2xl font-bold text-green-400">+₹{parseFloat(performance.bestTrade).toLocaleString()}</p>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {assets.map((asset) => {
           const p = prices[asset.symbol]
@@ -497,7 +535,7 @@ export default function DashboardPage() {
 
               <Link href={`/dashboard/${asset.symbol}`}>
                 <div className="text-3xl font-bold text-white">
-                  $
+                  ₹
                   {last.toLocaleString(undefined, {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 4,
@@ -543,7 +581,7 @@ export default function DashboardPage() {
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-xs text-zinc-400">Qty: {qty}</span>
                           <span className="text-xs text-zinc-400">
-                            ~${(qty * price).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                            ~₹{(qty * price).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                           </span>
                         </div>
                         <input
