@@ -3,12 +3,14 @@
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { io, Socket } from "socket.io-client"
+import { Loader2 } from "lucide-react"
+import toast from "react-hot-toast"
 
 type AssetInfo = {
   symbol: string
   name: string
   type: string
-}
+} 
 
 type PriceData = {
   last: number
@@ -51,6 +53,12 @@ export default function DashboardPage() {
     } catch {}
   }
 
+  function closeDepositModal() {
+    setShowDeposit(false)
+    setDepositAmount("")
+    setProcessing(false)
+  }
+
   async function handleDeposit() {
     const token = getToken()
     if (!token || !depositAmount || parseFloat(depositAmount) <= 0) return
@@ -80,21 +88,25 @@ export default function DashboardPage() {
         currency: orderData.currency,
         order_id: orderData.order_id,
         handler: async (response: any) => {
-          const verifyRes = await fetch("http://localhost:5000/api/wallet/deposit/verify", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            }),
-          })
-          const verifyData = await verifyRes.json()
-          if (verifyData.success) {
-            alert("Deposit successful!")
-            await refetchBalance()
-          } else {
-            alert(verifyData.error || "Verification failed")
+          try {
+            const verifyRes = await fetch("http://localhost:5000/api/wallet/deposit/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            })
+            const verifyData = await verifyRes.json()
+            if (verifyData.success) {
+              toast.success("Deposit successful!")
+              await refetchBalance()
+            } else {
+              toast.error(verifyData.error || "Verification failed")
+            }
+          } finally {
+            closeDepositModal()
           }
         },
         modal: {
@@ -105,11 +117,8 @@ export default function DashboardPage() {
       const razorpay = new (window as any).Razorpay(options)
       razorpay.open()
     } catch (err: any) {
-      alert(err.message || "Deposit failed")
-    } finally {
-      setProcessing(false)
-      setShowDeposit(false)
-      setDepositAmount("")
+      toast.error(err.message || "Deposit failed")
+      closeDepositModal()
     }
   }
 
@@ -154,15 +163,11 @@ export default function DashboardPage() {
     fetch("http://localhost:5000/api/market/assets")
       .then((r) => r.json())
       .then((d) => {
-        console.log("ASSETS:", d)
-
         if (d.success) {
           setAssets(d.data)
         }
       })
-      .catch((err) => {
-        console.error("Assets fetch error:", err)
-      })
+      .catch(() => {})
   }, [])
 
   // Socket connection
@@ -180,17 +185,24 @@ export default function DashboardPage() {
       setLoading(false)
     })
 
-    socket.on("connect_error", (err) => {
-      console.error("❌ Socket connection error:", err)
+    socket.on("connect_error", () => {
       setLoading(false)
     })
 
-    socket.on("error", (err) => {
-      console.error("❌ Socket error:", err)
+    socket.on("error", () => {})
+
+    socket.on("disconnect", (reason) => {
+      if (reason === "io server disconnect" || reason === "transport close") {
+        toast.error("Disconnected from server")
+      }
     })
 
-    socket.on("disconnect", () => {
-      console.log("⚠️ Socket disconnected")
+    socket.on("reconnect", () => {
+      toast.success("Reconnected to server")
+    })
+
+    socket.on("reconnect_failed", () => {
+      toast.error("Could not reconnect to server")
     })
 
     return () => {
@@ -255,7 +267,7 @@ export default function DashboardPage() {
       })
       const data = await res.json()
       if (data.error) {
-        alert(data.error)
+        toast.error(data.error)
       } else {
         const [balanceRes, portfolioRes] = await Promise.all([
           fetch("http://localhost:5000/api/wallet", {
@@ -275,10 +287,10 @@ export default function DashboardPage() {
           })
           setPositions(map)
         }
-        alert(`${trade.type} successful!`)
+        toast.success(`${trade.type} successful!`)
       }
     } catch (err) {
-      alert("Trade failed")
+      toast.error("Trade failed")
     } finally {
       setTrading(false)
       setTrade(null)
@@ -287,7 +299,8 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="p-16 text-zinc-400">
+      <div className="min-h-screen bg-[#09090b] flex items-center justify-center p-16 text-zinc-400">
+        <Loader2 className="animate-spin text-green-500 mr-3" size={20} />
         Loading market data...
       </div>
     )
@@ -295,8 +308,8 @@ export default function DashboardPage() {
 
   return (
     <div className="p-6 md:p-16 max-w-7xl mx-auto min-h-screen bg-[#09090b]">
-      <div className="flex items-baseline gap-4 mb-12">
-        <h1 className="text-5xl md:text-7xl font-bold text-white tracking-tight">
+      <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-4 mb-8 md:mb-12">
+        <h1 className="text-3xl sm:text-5xl md:text-7xl font-bold text-white tracking-tight">
           Balance:{" "}
           <span className="text-green-400">
             {balance !== null
@@ -304,16 +317,16 @@ export default function DashboardPage() {
               : "₹0"}
           </span>
         </h1>
-        <div className="flex gap-2 pb-1">
+        <div className="flex gap-2 sm:pb-1">
           <button
             onClick={() => setShowDeposit(true)}
-            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm transition-all"
+            className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm transition-all"
           >
             Deposit
           </button>
           <button
             onClick={() => setShowWithdraw(true)}
-            className="px-4 py-2 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white font-bold text-sm transition-all"
+            className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white font-bold text-sm transition-all"
           >
             Withdraw
           </button>
@@ -328,7 +341,7 @@ export default function DashboardPage() {
               type="number"
               min="0"
               step="any"
-              placeholder="Amount in USD"
+placeholder="Amount (₹)"
               value={depositAmount}
               onChange={(e) => setDepositAmount(e.target.value)}
               className="w-full mb-4 rounded-lg bg-zinc-800 border border-zinc-600 px-4 py-3 text-sm text-white outline-none focus:border-blue-500"
@@ -476,29 +489,29 @@ export default function DashboardPage() {
       )}
 
       {performance && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-[#1c1f26] border border-zinc-800 rounded-2xl p-5">
-            <p className="text-zinc-500 text-xs uppercase tracking-wider mb-1">Win Rate</p>
-            <p className="text-2xl font-bold text-white">{performance.winRate}</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+          <div className="bg-[#1c1f26] border border-zinc-800 rounded-2xl p-4 md:p-5">
+            <p className="text-zinc-500 text-[10px] md:text-xs uppercase tracking-wider mb-1">Win Rate</p>
+            <p className="text-xl md:text-2xl font-bold text-white">{performance.winRate}</p>
           </div>
-          <div className="bg-[#1c1f26] border border-zinc-800 rounded-2xl p-5">
-            <p className="text-zinc-500 text-xs uppercase tracking-wider mb-1">Total Trades</p>
-            <p className="text-2xl font-bold text-white">{performance.totalTrades}</p>
+          <div className="bg-[#1c1f26] border border-zinc-800 rounded-2xl p-4 md:p-5">
+            <p className="text-zinc-500 text-[10px] md:text-xs uppercase tracking-wider mb-1">Total Trades</p>
+            <p className="text-xl md:text-2xl font-bold text-white">{performance.totalTrades}</p>
           </div>
-          <div className="bg-[#1c1f26] border border-zinc-800 rounded-2xl p-5">
-            <p className="text-zinc-500 text-xs uppercase tracking-wider mb-1">Realized P&L</p>
-            <p className={`text-2xl font-bold ${parseFloat(performance.totalRealizedPnL) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+          <div className="bg-[#1c1f26] border border-zinc-800 rounded-2xl p-4 md:p-5">
+            <p className="text-zinc-500 text-[10px] md:text-xs uppercase tracking-wider mb-1">Realized P&L</p>
+            <p className={`text-xl md:text-2xl font-bold ${parseFloat(performance.totalRealizedPnL) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
               {parseFloat(performance.totalRealizedPnL) >= 0 ? '+' : ''}₹{parseFloat(performance.totalRealizedPnL).toLocaleString()}
             </p>
           </div>
-          <div className="bg-[#1c1f26] border border-zinc-800 rounded-2xl p-5">
-            <p className="text-zinc-500 text-xs uppercase tracking-wider mb-1">Best Trade</p>
-            <p className="text-2xl font-bold text-green-400">+₹{parseFloat(performance.bestTrade).toLocaleString()}</p>
+          <div className="bg-[#1c1f26] border border-zinc-800 rounded-2xl p-4 md:p-5">
+            <p className="text-zinc-500 text-[10px] md:text-xs uppercase tracking-wider mb-1">Best Trade</p>
+            <p className="text-xl md:text-2xl font-bold text-green-400">+₹{parseFloat(performance.bestTrade).toLocaleString()}</p>
           </div>
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">
         {assets.map((asset) => {
           const p = prices[asset.symbol]
 
@@ -510,15 +523,15 @@ export default function DashboardPage() {
           return (
             <div
               key={asset.symbol}
-              className="bg-[#1c1f26] border border-zinc-800 rounded-2xl p-6 shadow-xl"
+              className="bg-[#1c1f26] border border-zinc-800 rounded-2xl p-4 md:p-6 shadow-xl"
             >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center border border-zinc-700 font-bold text-white text-xs">
+              <div className="flex items-center gap-3 mb-3 md:mb-4">
+                <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-zinc-800 flex items-center justify-center border border-zinc-700 font-bold text-white text-xs">
                   {asset.symbol[0]}
                 </div>
 
                 <div>
-                  <h3 className="text-white font-bold text-lg">
+                  <h3 className="text-white font-bold text-base md:text-lg">
                     {asset.symbol}
                   </h3>
 
@@ -534,7 +547,7 @@ export default function DashboardPage() {
               </div>
 
               <Link href={`/dashboard/${asset.symbol}`}>
-                <div className="text-3xl font-bold text-white">
+                <div className="text-2xl md:text-3xl font-bold text-white">
                   ₹
                   {last.toLocaleString(undefined, {
                     minimumFractionDigits: 2,
@@ -551,7 +564,7 @@ export default function DashboardPage() {
                 </div>
               </Link>
 
-              <div className="flex gap-3 mt-4">
+              <div className="flex gap-3 mt-3 md:mt-4">
                 <button
                   onClick={() => setTrade({ symbol: asset.symbol, type: "BUY", quantity: "0" })}
                   className="flex-1 py-2 rounded-xl border border-green-500/50 text-green-400 font-bold hover:bg-green-500/20 transition-all text-sm text-center"
@@ -568,7 +581,7 @@ export default function DashboardPage() {
               </div>
 
               {trade && trade.symbol === asset.symbol && (
-                <div className="mt-4 p-3 rounded-xl bg-zinc-800/50 border border-zinc-700">
+                <div className="mt-3 md:mt-4 p-3 rounded-xl bg-zinc-800/50 border border-zinc-700">
                   {(() => {
                     const price = last || 1
                     const maxQty = trade.type === "BUY"

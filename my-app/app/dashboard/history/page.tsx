@@ -135,7 +135,7 @@ export default function HistoryPage() {
           <h1 className="text-4xl font-bold text-white tracking-tight">Trade History</h1>
         </div>
 
-        <div className="flex gap-3 mb-6">
+        <div className="flex flex-wrap gap-3 mb-6 items-center">
           {filters.map((f) => (
             <button
               key={f.val}
@@ -149,73 +149,145 @@ export default function HistoryPage() {
               {f.label}
             </button>
           ))}
-          <button onClick={download} className="ml-auto p-2 bg-[#111318] border border-zinc-800 rounded-xl hover:bg-zinc-800">
-            <Download size={20} />
-          </button>
+          {displayTrades.length > 0 && (
+            <button onClick={download} className="ml-auto p-2 bg-[#111318] border border-zinc-800 rounded-xl hover:bg-zinc-800">
+              <Download size={20} />
+            </button>
+          )}
         </div>
 
-        <div className="bg-[#111318] border border-zinc-800 rounded-[2rem] overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="text-zinc-500 text-xs uppercase tracking-wider border-b border-zinc-800">
-                  <th className="px-8 py-6">Asset</th>
-                  <th className="px-8 py-6">Qty</th>
-                  <th className="px-8 py-6">Entry</th>
-                  <th className="px-8 py-6">Exit</th>
-                  <th className="px-8 py-6">P&L</th>
-                  <th className="px-8 py-6">Time</th>
-                </tr>
-              </thead>
-              <tbody className="text-sm">
-                {displayTrades.map((t, i) => (
-                  <tr key={i} className="border-b border-zinc-800/50 hover:bg-zinc-800/20">
-                    <td className="px-8 py-6">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-2 h-2 rounded-full ${t.pnl >= 0 ? "bg-green-500" : "bg-red-500"}`} />
-                        <span className="text-white font-bold">{t.asset}</span>
-                      </div>
-                    </td>
-                    <td className="px-8 py-6 text-zinc-300">{t.qty}</td>
-                    <td className="px-8 py-6 text-zinc-300">₹{t.entryPrice}</td>
-                    <td className="px-8 py-6 text-zinc-300">₹{t.exitPrice}</td>
-                    <td className="px-8 py-6">
-                      <span className={`font-bold ${t.pnl >= 0 ? "text-green-400" : "text-red-400"}`}>
-                        {t.pnl >= 0 ? "+" : ""}₹{t.pnlFormatted}
-                      </span>
-                      <span className={`ml-2 text-xs ${t.pnl >= 0 ? "text-green-400/70" : "text-red-400/70"}`}>
-                        ({t.pnl >= 0 ? "+" : ""}{t.pnlPercent}%)
-                      </span>
-                    </td>
-                    <td className="px-8 py-6 text-zinc-500 text-xs">{t.time}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {displayTrades.length === 0 ? (
+          <div className="bg-[#111318] border border-zinc-800 rounded-[2rem] p-12 text-center">
+            <History className="mx-auto text-zinc-600 mb-3" size={40} />
+            <p className="text-zinc-500 text-lg">No trades found</p>
+            <p className="text-zinc-600 text-sm mt-1">
+              {filter === 0 ? "No trade history yet" : `No trades in the selected period`}
+            </p>
           </div>
+        ) : (
+          <>
+            {/* Desktop table */}
+            <div className="hidden md:block bg-[#111318] border border-zinc-800 rounded-[2rem] overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="text-zinc-500 text-xs uppercase tracking-wider border-b border-zinc-800">
+                      <th className="px-6 py-5">Asset</th>
+                      <th className="px-6 py-5">Qty</th>
+                      <th className="px-6 py-5">Entry</th>
+                      <th className="px-6 py-5">Exit</th>
+                      <th className="px-6 py-5">P&L</th>
+                      <th className="px-6 py-5">Time</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-sm">
+                    {displayTrades.map((t, i) => {
+                      const trade = filtered[i]
+                      return (
+                        <tr key={trade?.id || i} className="border-b border-zinc-800/50 hover:bg-zinc-800/20">
+                          <td className="px-6 py-5">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-2 h-2 rounded-full ${t.pnl >= 0 ? "bg-green-500" : "bg-red-500"}`} />
+                              <span className="text-white font-bold">{t.asset}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-5 text-zinc-300">{t.qty}</td>
+                          <td className="px-6 py-5 text-zinc-300">₹{t.entryPrice}</td>
+                          <td className="px-6 py-5 text-zinc-300">₹{t.exitPrice}</td>
+                          <td className="px-6 py-5">
+                            <span className={`font-bold ${t.pnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+                              {t.pnl >= 0 ? "+" : ""}₹{t.pnlFormatted}
+                            </span>
+                            <span className={`ml-2 text-xs ${t.pnl >= 0 ? "text-green-400/70" : "text-red-400/70"}`}>
+                              ({t.pnl >= 0 ? "+" : ""}{t.pnlPercent}%)
+                            </span>
+                          </td>
+                          <td className="px-6 py-5 text-zinc-500 text-xs">{t.time}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
 
-          <div className="p-6 border-t border-zinc-800 bg-[#0d0f14]">
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-zinc-600">Showing {displayTrades.length} of {trades.length} trades</p>
-              <div className="flex items-center gap-8">
-                <div className="text-right">
-                  <p className="text-xs text-zinc-600 uppercase tracking-wider">Total P&L</p>
-                  <p className={`text-lg font-bold ${totalPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
-                    {totalPnl >= 0 ? "+" : ""}₹{formatPrice(totalPnl)}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-zinc-600 uppercase tracking-wider">Win / Loss</p>
-                  <p className="text-lg font-bold">
-                    <span className="text-green-400">{winTrades}</span>
-                    <span className="text-zinc-600"> / </span>
-                    <span className="text-red-400">{lossTrades}</span>
-                  </p>
+              <div className="p-5 border-t border-zinc-800 bg-[#0d0f14]">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-zinc-600">Showing {displayTrades.length} of {trades.length} trades</p>
+                  <div className="flex items-center gap-6">
+                    <div className="text-right">
+                      <p className="text-xs text-zinc-600 uppercase tracking-wider">Total P&L</p>
+                      <p className={`text-lg font-bold ${totalPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+                        {totalPnl >= 0 ? "+" : ""}₹{formatPrice(totalPnl)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-zinc-600 uppercase tracking-wider">Win / Loss</p>
+                      <p className="text-lg font-bold">
+                        <span className="text-green-400">{winTrades}</span>
+                        <span className="text-zinc-600"> / </span>
+                        <span className="text-red-400">{lossTrades}</span>
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
+
+            {/* Mobile cards */}
+            <div className="md:hidden space-y-3">
+              {displayTrades.map((t, i) => {
+                const trade = filtered[i]
+                return (
+                  <div key={trade?.id || i} className="bg-[#111318] border border-zinc-800 rounded-2xl p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${t.pnl >= 0 ? "bg-green-500" : "bg-red-500"}`} />
+                        <span className="text-white font-bold">{t.asset}</span>
+                      </div>
+                      <span className={`font-bold ${t.pnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+                        {t.pnl >= 0 ? "+" : ""}₹{t.pnlFormatted}
+                        <span className={`ml-1 text-xs ${t.pnl >= 0 ? "text-green-400/70" : "text-red-400/70"}`}>
+                          ({t.pnl >= 0 ? "+" : ""}{t.pnlPercent}%)
+                        </span>
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2 text-xs mb-2">
+                      <div>
+                        <p className="text-zinc-500">Qty</p>
+                        <p className="text-zinc-300 font-medium">{t.qty}</p>
+                      </div>
+                      <div>
+                        <p className="text-zinc-500">Entry</p>
+                        <p className="text-zinc-300 font-medium">₹{t.entryPrice}</p>
+                      </div>
+                      <div>
+                        <p className="text-zinc-500">Exit</p>
+                        <p className="text-zinc-300 font-medium">₹{t.exitPrice}</p>
+                      </div>
+                      <div>
+                        <p className="text-zinc-500">Period</p>
+                        <p className="text-zinc-300 font-medium text-[10px]">{t.time.replace(" → ", "→")}</p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+              <div className="flex items-center justify-between px-1 pt-2 pb-1 text-xs">
+                <p className="text-zinc-600">{displayTrades.length} of {trades.length} trades</p>
+                <div className="flex items-center gap-4">
+                  <span className={totalPnl >= 0 ? "text-green-400" : "text-red-400"}>
+                    {totalPnl >= 0 ? "+" : ""}₹{formatPrice(totalPnl)}
+                  </span>
+                  <span>
+                    <span className="text-green-400">{winTrades}</span>
+                    <span className="text-zinc-600">/</span>
+                    <span className="text-red-400">{lossTrades}</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

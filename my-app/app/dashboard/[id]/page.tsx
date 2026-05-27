@@ -8,6 +8,7 @@ import {
   ColorType 
 } from "lightweight-charts";
 import { io, Socket } from "socket.io-client";
+import toast from "react-hot-toast";
 
 const API = "http://localhost:5000";
 
@@ -34,7 +35,7 @@ function formatLabelIST(sec: number): string {
 export default function AssetDetailPage() {
   const { id } = useParams() as { id: string };
   const [price, setPrice] = useState<number>(0);
-  const [timeframe, setTimeframe] = useState(300);
+  const [timeframe, setTimeframe] = useState(60);
   const [trade, setTrade] = useState<{ type: "BUY" | "SELL"; quantity: string } | null>(null);
   const [trading, setTrading] = useState(false);
 
@@ -57,12 +58,12 @@ export default function AssetDetailPage() {
       });
       const data = await res.json();
       if (data.error) {
-        alert(data.error);
+        toast.error(data.error);
       } else {
-        alert(`${trade.type} successful!`);
+        toast.success(`${trade.type} successful!`);
       }
     } catch {
-      alert("Trade failed");
+      toast.error("Trade failed");
     } finally {
       setTrading(false);
       setTrade(null);
@@ -155,6 +156,19 @@ export default function AssetDetailPage() {
       if (result.success && result.data) {
         setPrice(Number(result.data.last));
       }
+    });
+    socket.on('connect_error', () => {});
+    socket.on('disconnect', (reason) => {
+      if (reason === 'io server disconnect' || reason === 'transport close') {
+        toast.error('Disconnected from server');
+      }
+    });
+    socket.on('reconnect', () => {
+      socket.emit('getPrice', { symbol: id });
+      toast.success('Reconnected to server');
+    });
+    socket.on('reconnect_failed', () => {
+      toast.error('Could not reconnect to server');
     });
     return () => {
       socket.disconnect();

@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Briefcase,
   History,
+  Wallet,
   LogOut,
   UserCircle,
   Menu,
@@ -24,6 +25,11 @@ const navItems = [
     name: "Portfolio",
     href: "/dashboard/portfolio",
     icon: <Briefcase size={20} />,
+  },
+  {
+    name: "Wallet",
+    href: "/dashboard/wallet",
+    icon: <Wallet size={20} />,
   },
   { name: "History", href: "/dashboard/history", icon: <History size={20} /> },
 ];

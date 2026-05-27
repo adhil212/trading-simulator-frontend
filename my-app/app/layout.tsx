@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { UserProvider } from "./UserProvider"
+import { Toaster } from "react-hot-toast"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,6 +34,14 @@ export default function RootLayout({
         <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!}>
           <UserProvider>{children}</UserProvider>
         </GoogleOAuthProvider>
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            style: { background: "#1c1f26", color: "#e4e4e7", border: "1px solid #27272a", fontSize: "14px" },
+            success: { iconTheme: { primary: "#22c55e", secondary: "#fff" } },
+            error: { iconTheme: { primary: "#ef4444", secondary: "#fff" } },
+          }}
+        />
       </body>
     </html>
   );
