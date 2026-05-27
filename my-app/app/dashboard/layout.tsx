@@ -12,6 +12,7 @@ import {
   UserCircle,
   Menu,
   X,
+  Shield,
 } from "lucide-react";
 import { useUser } from "../UserProvider";
 
@@ -108,6 +109,16 @@ export default function DashboardLayout({
               </Link>
             );
           })}
+          {mounted && user?.is_admin && (
+            <Link
+              href="/admin"
+              onClick={closeSidebar}
+              className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:bg-zinc-800/50 hover:text-zinc-200 mt-2 border-t border-zinc-800 pt-4"
+            >
+              <Shield size={20} className="text-green-500" />
+              <span className="font-medium text-green-500">Admin Panel</span>
+            </Link>
+          )}
         </nav>
 
         <button
