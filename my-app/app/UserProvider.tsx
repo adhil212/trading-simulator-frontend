@@ -6,6 +6,7 @@ type User = {
   id?: number
   username?: string
   email?: string
+  is_admin?: boolean
 } | null
 
 type UserContextType = {
@@ -15,14 +16,30 @@ type UserContextType = {
 
 const UserContext = createContext<UserContextType | undefined>(undefined)
 
+function decodeJwtPayload(token: string) {
+  try {
+    const parts = token.split(".")
+    if (parts.length !== 3) return null
+    const payload = parts[1]
+    const decoded = atob(payload.replace(/-/g, "+").replace(/_/g, "/"))
+    return JSON.parse(decoded)
+  } catch {
+    return null
+  }
+}
+
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User>(() => {
     if (typeof window === "undefined") return null
 
+    const token = localStorage.getItem("token")
+    const decoded = token ? decodeJwtPayload(token) : null
+
     const storedUser = localStorage.getItem("user")
     if (storedUser) {
       try {
-        return JSON.parse(storedUser) as User
+        const parsed = JSON.parse(storedUser) as User
+        return { ...parsed, is_admin: decoded?.is_admin || parsed?.is_admin || false }
       } catch {
         localStorage.removeItem("user")
       }
@@ -30,7 +47,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
     const username = localStorage.getItem("username")
     if (username) {
-      return { username }
+      return { username, is_admin: decoded?.is_admin || false }
     }
 
     return null
