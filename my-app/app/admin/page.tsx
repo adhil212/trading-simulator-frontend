@@ -6,8 +6,9 @@ import {
   ArrowLeftRight,
   DollarSign,
   TrendingUp,
-  Activity,
+  RefreshCw,
 } from "lucide-react";
+import toast from "react-hot-toast";
 import {
   LineChart,
   Line,
@@ -25,30 +26,57 @@ const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 export default function AdminDashboard() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchStats();
-  }, []);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchStats = async () => {
     try {
+      setLoading(true);
+      setError(null);
       const token = localStorage.getItem("token");
       const res = await fetch(`${API}/api/admin/stats`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
+      if (data.error) {
+        toast.error(data.error);
+        setError(data.error);
+        return;
+      }
       setStats(data);
-    } catch (err) {
-      console.error("Failed to fetch admin stats:", err);
+    } catch {
+      toast.error("Failed to fetch admin stats");
+      setError("Failed to fetch admin stats. Check your connection.");
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchStats();
+  }, []);
+
   if (loading) {
     return (
       <div className="p-6 flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500" />
+      </div>
+    );
+  }
+
+  if (error && !stats) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-red-400 mb-4">{error}</p>
+          <button
+            onClick={fetchStats}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700 transition-colors text-sm mx-auto"
+          >
+            <RefreshCw size={16} />
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
@@ -75,13 +103,6 @@ export default function AdminDashboard() {
       color: "text-green-500",
       bg: "bg-green-500/10",
     },
-    {
-      label: "Active Today",
-      value: stats?.users?.activeToday ?? 0,
-      icon: <Activity size={24} />,
-      color: "text-orange-500",
-      bg: "bg-orange-500/10",
-    },
   ];
 
   return (
@@ -96,7 +117,7 @@ export default function AdminDashboard() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {statCards.map((card) => (
           <div
             key={card.label}
