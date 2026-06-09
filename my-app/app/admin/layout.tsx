@@ -8,6 +8,7 @@ import {
   Users,
   ArrowLeftRight,
   BarChart3,
+  Wallet,
   LogOut,
   UserCircle,
   Menu,
@@ -36,6 +37,11 @@ const navItems = [
     name: "Market",
     href: "/admin/market",
     icon: <BarChart3 size={20} />,
+  },
+  {
+    name: "Assets",
+    href: "/admin/assets",
+    icon: <Wallet size={20} />,
   },
 ];
 
