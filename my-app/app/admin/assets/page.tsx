@@ -222,7 +222,7 @@ export default function AdminAssets() {
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right text-white">
-                      ${Number(a.base_price).toLocaleString()}
+                      ₹{Number(a.base_price).toLocaleString()}
                     </td>
                     <td className="py-3 px-4 text-right text-zinc-400">
                       {a.volatility}

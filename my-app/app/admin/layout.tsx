@@ -7,8 +7,11 @@ import {
   LayoutDashboard,
   Users,
   ArrowLeftRight,
+  DollarSign,
   BarChart3,
   Wallet,
+  History,
+  FileText,
   LogOut,
   UserCircle,
   Menu,
@@ -32,6 +35,21 @@ const navItems = [
     name: "Trades",
     href: "/admin/trades",
     icon: <ArrowLeftRight size={20} />,
+  },
+  {
+    name: "Commissions",
+    href: "/admin/commissions",
+    icon: <DollarSign size={20} />,
+  },
+  {
+    name: "Transactions",
+    href: "/admin/transactions",
+    icon: <History size={20} />,
+  },
+  {
+    name: "Withdrawals",
+    href: "/admin/withdrawals",
+    icon: <FileText size={20} />,
   },
   {
     name: "Market",
@@ -58,12 +76,13 @@ export default function AdminLayout({
 
   useEffect(() => {
     setMounted(true);
-    if (mounted && user && !user.is_admin) {
+  }, []);
+
+  useEffect(() => {
+    if (user && !user.is_admin) {
       router.replace("/dashboard");
     }
-  }, [user, mounted]);
-
-  useEffect(() => { setMounted(true); }, []);
+  }, [user]);
 
   const closeSidebar = () => setSidebarOpen(false);
 

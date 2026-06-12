@@ -1,46 +1,39 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
-import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import toast from "react-hot-toast";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-export default function AdminUsers() {
-  const [users, setUsers] = useState<any[]>([]);
+export default function AdminCommissions() {
+  const [commissions, setCommissions] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
-  const [search, setSearch] = useState("");
-  const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [offset, setOffset] = useState(0);
   const limit = 50;
 
-  const fetchUsers = async () => {
+  const fetchCommissions = async () => {
     try {
       setLoading(true);
       setError(null);
       const token = localStorage.getItem("token");
-      const params = new URLSearchParams({
-        limit: limit.toString(),
-        offset: offset.toString(),
-      });
-      if (search) params.set("search", search);
-
-      const res = await fetch(`${API}/api/admin/users?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(
+        `${API}/api/admin/commissions?limit=${limit}&offset=${offset}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       const data = await res.json();
       if (data.error) {
         toast.error(data.error);
         setError(data.error);
         return;
       }
-      setUsers(data.users || []);
+      setCommissions(data.commissions || []);
       setTotal(data.total || 0);
     } catch {
-      toast.error("Failed to fetch users");
-      setError("Failed to fetch users. Check your connection.");
+      toast.error("Failed to fetch commissions");
+      setError("Failed to fetch commissions. Check your connection.");
     } finally {
       setLoading(false);
     }
@@ -48,35 +41,16 @@ export default function AdminUsers() {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchUsers();
+    fetchCommissions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, offset]);
+  }, [offset]);
 
   const totalPages = Math.ceil(total / limit);
   const currentPage = Math.floor(offset / limit) + 1;
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold text-white">User Management</h1>
-
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search
-            size={18}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
-          />
-          <input
-            type="text"
-            placeholder="Search by username or email..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setOffset(0);
-            }}
-            className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-zinc-900 border border-zinc-700 text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-green-500/50 text-sm"
-          />
-        </div>
-      </div>
+      <h1 className="text-2xl font-bold text-white">Commission History</h1>
 
       <div className="rounded-xl border border-zinc-800 overflow-hidden bg-[#111318]">
         <div className="overflow-x-auto">
@@ -84,12 +58,12 @@ export default function AdminUsers() {
             <thead>
               <tr className="text-zinc-500 border-b border-zinc-800 bg-zinc-900/50">
                 <th className="text-left py-3 px-4">ID</th>
-                <th className="text-left py-3 px-4">Username</th>
-                <th className="text-left py-3 px-4">Email</th>
-                <th className="text-right py-3 px-4">Balance</th>
-                <th className="text-right py-3 px-4">Trades</th>
-                <th className="text-center py-3 px-4">Admin</th>
-                <th className="text-right py-3 px-4">Joined</th>
+                <th className="text-left py-3 px-4">Trade ID</th>
+                <th className="text-left py-3 px-4">User</th>
+                <th className="text-left py-3 px-4">Symbol</th>
+                <th className="text-center py-3 px-4">Type</th>
+                <th className="text-right py-3 px-4">Amount</th>
+                <th className="text-right py-3 px-4">Date</th>
               </tr>
             </thead>
             <tbody>
@@ -99,47 +73,45 @@ export default function AdminUsers() {
                     Loading...
                   </td>
                 </tr>
-              ) : users.length === 0 ? (
+              ) : commissions.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-8 text-zinc-500">
-                    {error || "No users found"}
+                    {error || "No commissions yet"}
                   </td>
                 </tr>
               ) : (
-                users.map((user) => (
+                commissions.map((c: any) => (
                   <tr
-                    key={user.id}
+                    key={c.id}
                     className="border-b border-zinc-800/50 hover:bg-zinc-800/20"
                   >
-                    <td className="py-3 px-4 text-zinc-400">{user.id}</td>
+                    <td className="py-3 px-4 text-zinc-400">{c.id}</td>
+                    <td className="py-3 px-4 text-zinc-400">{c.trade_id}</td>
                     <td className="py-3 px-4">
-                      <Link
-                        href={`/admin/users/${user.id}`}
-                        className="text-white hover:text-green-500 transition-colors"
-                      >
-                        {user.username}
-                      </Link>
+                      <span className="text-white">{c.username}</span>
+                      <span className="text-zinc-600 text-xs ml-1">
+                        (ID: {c.user_id})
+                      </span>
                     </td>
-                    <td className="py-3 px-4 text-zinc-400">{user.email}</td>
-                    <td className="py-3 px-4 text-right text-white">
-                      ₹{Number(user.balance).toLocaleString()}
-                    </td>
-                    <td className="py-3 px-4 text-right text-zinc-400">
-                      {user.trades_count}
+                    <td className="py-3 px-4 text-white font-medium">
+                      {c.symbol}
                     </td>
                     <td className="py-3 px-4 text-center">
-                      {user.is_admin ? (
-                        <span className="text-green-500 text-xs font-medium bg-green-500/10 px-2 py-0.5 rounded-full">
-                          Yes
-                        </span>
-                      ) : (
-                        <span className="text-zinc-600 text-xs">No</span>
-                      )}
+                      <span
+                        className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                          c.type === "BUY"
+                            ? "text-green-500 bg-green-500/10"
+                            : "text-red-500 bg-red-500/10"
+                        }`}
+                      >
+                        {c.type}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right text-yellow-500 font-medium">
+                      ₹{Number(c.amount).toFixed(2)}
                     </td>
                     <td className="py-3 px-4 text-right text-zinc-400 text-xs">
-                      {user.created_at
-                        ? new Date(user.created_at).toLocaleDateString()
-                        : "-"}
+                      {new Date(c.created_at).toLocaleString()}
                     </td>
                   </tr>
                 ))

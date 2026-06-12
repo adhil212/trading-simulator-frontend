@@ -1,19 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import toast from "react-hot-toast";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-export default function AdminTrades() {
-  const [trades, setTrades] = useState<any[]>([]);
+export default function AdminTransactions() {
+  const [transactions, setTransactions] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState({
-    symbol: "",
     type: "",
+    status: "",
     user_id: "",
     date_from: "",
     date_to: "",
@@ -21,7 +21,7 @@ export default function AdminTrades() {
   const [offset, setOffset] = useState(0);
   const limit = 50;
 
-  const fetchTrades = async () => {
+  const fetchTransactions = async () => {
     try {
       setLoading(true);
       setError(null);
@@ -34,7 +34,7 @@ export default function AdminTrades() {
         if (value) params.set(key, value);
       });
 
-      const res = await fetch(`${API}/api/admin/trades?${params}`, {
+      const res = await fetch(`${API}/api/admin/transactions?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -43,11 +43,11 @@ export default function AdminTrades() {
         setError(data.error);
         return;
       }
-      setTrades(data.trades || []);
+      setTransactions(data.transactions || []);
       setTotal(data.total || 0);
     } catch {
-      toast.error("Failed to fetch trades");
-      setError("Failed to fetch trades. Check your connection.");
+      toast.error("Failed to fetch transactions");
+      setError("Failed to fetch transactions. Check your connection.");
     } finally {
       setLoading(false);
     }
@@ -55,32 +55,26 @@ export default function AdminTrades() {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchTrades();
+    fetchTransactions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters, offset]);
 
   const exportCsv = () => {
-    const headers = [
-      "ID", "User", "Symbol", "Type", "Quantity",
-      "Price", "Total Value", "Commission", "Date",
-    ];
-    const rows = trades.map((t) => [
-      t.id,
-      t.username,
-      t.symbol,
-      t.type,
-      t.quantity,
-      t.price,
-      t.total_value,
-      t.commission,
-      new Date(t.executed_at).toISOString(),
+    const headers = ["ID", "User", "Type", "Amount", "Status", "Date"];
+    const rows = transactions.map((tx) => [
+      tx.id,
+      tx.username,
+      tx.type,
+      tx.amount,
+      tx.status,
+      new Date(tx.created_at).toISOString(),
     ]);
     const csv = [headers, ...rows].map((r) => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `trades-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `transactions-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success("CSV exported");
@@ -92,10 +86,10 @@ export default function AdminTrades() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Trade Monitor</h1>
+        <h1 className="text-2xl font-bold text-white">Transactions</h1>
         <button
           onClick={exportCsv}
-          disabled={trades.length === 0}
+          disabled={transactions.length === 0}
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700 disabled:opacity-50 transition-colors text-sm"
         >
           <Download size={16} />
@@ -104,54 +98,42 @@ export default function AdminTrades() {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <input
-          type="text"
-          placeholder="Symbol..."
-          value={filters.symbol}
-          onChange={(e) => {
-            setFilters({ ...filters, symbol: e.target.value });
-            setOffset(0);
-          }}
-          className="px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-700 text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-green-500/50 text-sm"
-        />
         <select
           value={filters.type}
-          onChange={(e) => {
-            setFilters({ ...filters, type: e.target.value });
-            setOffset(0);
-          }}
+          onChange={(e) => { setFilters({ ...filters, type: e.target.value }); setOffset(0); }}
           className="px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-700 text-zinc-200 focus:outline-none focus:border-green-500/50 text-sm"
         >
           <option value="">All Types</option>
-          <option value="BUY">BUY</option>
-          <option value="SELL">SELL</option>
+          <option value="DEPOSIT">DEPOSIT</option>
+          <option value="WITHDRAWAL">WITHDRAWAL</option>
+        </select>
+        <select
+          value={filters.status}
+          onChange={(e) => { setFilters({ ...filters, status: e.target.value }); setOffset(0); }}
+          className="px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-700 text-zinc-200 focus:outline-none focus:border-green-500/50 text-sm"
+        >
+          <option value="">All Status</option>
+          <option value="PENDING">PENDING</option>
+          <option value="COMPLETED">COMPLETED</option>
+          <option value="REJECTED">REJECTED</option>
         </select>
         <input
           type="text"
           placeholder="User ID..."
           value={filters.user_id}
-          onChange={(e) => {
-            setFilters({ ...filters, user_id: e.target.value });
-            setOffset(0);
-          }}
+          onChange={(e) => { setFilters({ ...filters, user_id: e.target.value }); setOffset(0); }}
           className="px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-700 text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-green-500/50 text-sm"
         />
         <input
           type="date"
           value={filters.date_from}
-          onChange={(e) => {
-            setFilters({ ...filters, date_from: e.target.value });
-            setOffset(0);
-          }}
+          onChange={(e) => { setFilters({ ...filters, date_from: e.target.value }); setOffset(0); }}
           className="px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-700 text-zinc-200 focus:outline-none focus:border-green-500/50 text-sm"
         />
         <input
           type="date"
           value={filters.date_to}
-          onChange={(e) => {
-            setFilters({ ...filters, date_to: e.target.value });
-            setOffset(0);
-          }}
+          onChange={(e) => { setFilters({ ...filters, date_to: e.target.value }); setOffset(0); }}
           className="px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-700 text-zinc-200 focus:outline-none focus:border-green-500/50 text-sm"
         />
       </div>
@@ -163,65 +145,58 @@ export default function AdminTrades() {
               <tr className="text-zinc-500 border-b border-zinc-800 bg-zinc-900/50">
                 <th className="text-left py-3 px-4">ID</th>
                 <th className="text-left py-3 px-4">User</th>
-                <th className="text-left py-3 px-4">Symbol</th>
-                <th className="text-center py-3 px-4">Type</th>
-                <th className="text-right py-3 px-4">Quantity</th>
-                <th className="text-right py-3 px-4">Price</th>
-                <th className="text-right py-3 px-4">Total</th>
+                <th className="text-left py-3 px-4">Type</th>
+                <th className="text-right py-3 px-4">Amount</th>
+                <th className="text-center py-3 px-4">Status</th>
                 <th className="text-right py-3 px-4">Date</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-8 text-zinc-500">
-                    Loading...
-                  </td>
+                  <td colSpan={6} className="text-center py-8 text-zinc-500">Loading...</td>
                 </tr>
-              ) : trades.length === 0 ? (
+              ) : transactions.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-8 text-zinc-500">
-                    {error || "No trades found"}
+                  <td colSpan={6} className="text-center py-8 text-zinc-500">
+                    {error || "No transactions found"}
                   </td>
                 </tr>
               ) : (
-                trades.map((trade) => (
-                  <tr
-                    key={trade.id}
-                    className="border-b border-zinc-800/50 hover:bg-zinc-800/20"
-                  >
-                    <td className="py-3 px-4 text-zinc-400">{trade.id}</td>
+                transactions.map((tx: any) => (
+                  <tr key={tx.id} className="border-b border-zinc-800/50 hover:bg-zinc-800/20">
+                    <td className="py-3 px-4 text-zinc-400">{tx.id}</td>
                     <td className="py-3 px-4">
-                      <span className="text-white">{trade.username}</span>
-                      <span className="text-zinc-600 text-xs ml-1">
-                        (ID: {trade.user_id})
+                      <span className="text-white">{tx.username}</span>
+                      <span className="text-zinc-600 text-xs ml-1">(ID: {tx.user_id})</span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                        tx.type === "DEPOSIT"
+                          ? "text-green-500 bg-green-500/10"
+                          : "text-red-500 bg-red-500/10"
+                      }`}>
+                        {tx.type}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-white font-medium">
-                      {trade.symbol}
+                    <td className={`py-3 px-4 text-right font-medium ${
+                      tx.type === "DEPOSIT" ? "text-green-500" : "text-red-500"
+                    }`}>
+                      {tx.type === "DEPOSIT" ? "+" : "-"}₹{Number(tx.amount).toLocaleString()}
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <span
-                        className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                          trade.type === "BUY"
-                            ? "text-green-500 bg-green-500/10"
-                            : "text-red-500 bg-red-500/10"
-                        }`}
-                      >
-                        {trade.type}
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                        tx.status === "COMPLETED"
+                          ? "text-green-500 bg-green-500/10"
+                          : tx.status === "PENDING"
+                          ? "text-yellow-500 bg-yellow-500/10"
+                          : "text-red-500 bg-red-500/10"
+                      }`}>
+                        {tx.status}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-right">
-                      {Number(trade.quantity).toFixed(4)}
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      ₹{Number(trade.price).toFixed(2)}
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      ₹{Number(trade.total_value).toFixed(2)}
-                    </td>
                     <td className="py-3 px-4 text-right text-zinc-400 text-xs">
-                      {new Date(trade.executed_at).toLocaleString()}
+                      {new Date(tx.created_at).toLocaleString()}
                     </td>
                   </tr>
                 ))
@@ -244,9 +219,7 @@ export default function AdminTrades() {
             >
               <ChevronLeft size={18} />
             </button>
-            <span className="text-zinc-400">
-              Page {currentPage} of {totalPages}
-            </span>
+            <span className="text-zinc-400">Page {currentPage} of {totalPages}</span>
             <button
               onClick={() => setOffset(offset + limit)}
               disabled={offset + limit >= total}

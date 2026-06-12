@@ -171,13 +171,13 @@ export default function AdminMarket() {
                       </span>
                     </td>
                     <td className="py-3 px-2 text-right">
-                      ${p.bid?.toFixed?.(p.bid < 10 ? 4 : 2) ?? "-"}
+                      ₹{p.bid?.toFixed?.(p.bid < 10 ? 4 : 2) ?? "-"}
                     </td>
                     <td className="py-3 px-2 text-right">
-                      ${p.ask?.toFixed?.(p.ask < 10 ? 4 : 2) ?? "-"}
+                      ₹{p.ask?.toFixed?.(p.ask < 10 ? 4 : 2) ?? "-"}
                     </td>
                     <td className="py-3 px-2 text-right text-white font-medium">
-                      ${p.last?.toFixed?.(p.last < 10 ? 4 : 2) ?? "-"}
+                      ₹{p.last?.toFixed?.(p.last < 10 ? 4 : 2) ?? "-"}
                     </td>
                     <td
                       className={`py-3 px-2 text-right ${

@@ -1,4 +1,4 @@
-"use client";
+    "use client";
 
 import { useState, useEffect } from "react";
 import {
@@ -98,10 +98,17 @@ export default function AdminDashboard() {
     },
     {
       label: "Total Volume",
-      value: `$${Number(stats?.trades?.totalVolume ?? 0).toLocaleString()}`,
+      value: `₹${Number(stats?.trades?.totalVolume ?? 0).toLocaleString()}`,
       icon: <DollarSign size={24} />,
       color: "text-green-500",
       bg: "bg-green-500/10",
+    },
+    {
+      label: "Commissions Earned",
+      value: `₹${Number(stats?.totalCommissions ?? 0).toLocaleString()}`,
+      icon: <TrendingUp size={24} />,
+      color: "text-yellow-500",
+      bg: "bg-yellow-500/10",
     },
   ];
 
@@ -117,7 +124,7 @@ export default function AdminDashboard() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((card) => (
           <div
             key={card.label}
@@ -227,7 +234,7 @@ export default function AdminDashboard() {
                           : "text-red-500"
                       }`}
                     >
-                      ${Number(trader.total_pnl).toLocaleString()}
+                      ₹{Number(trader.total_pnl).toLocaleString()}
                     </td>
                   </tr>
                 ))}
