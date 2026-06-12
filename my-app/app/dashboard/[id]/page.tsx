@@ -10,7 +10,7 @@ import {
 import { io, Socket } from "socket.io-client";
 import toast from "react-hot-toast";
 
-const API = "http://localhost:5000";
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 const TIMEFRAMES = [
   { label: "1m", value: 60 },

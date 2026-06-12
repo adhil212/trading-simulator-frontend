@@ -4,7 +4,10 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 import { io, Socket } from "socket.io-client"
 import { Loader2 } from "lucide-react"
+import ChatPanel from "./ChatPanel"
 import toast from "react-hot-toast"
+
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
 
 type AssetInfo = {
   symbol: string
@@ -36,6 +39,10 @@ export default function DashboardPage() {
   const [withdrawAccountNo, setWithdrawAccountNo] = useState("")
   const [withdrawIfsc, setWithdrawIfsc] = useState("")
   const [withdrawUpi, setWithdrawUpi] = useState("")
+  const [performance, setPerformance] = useState<any>(null)
+  const [positions, setPositions] = useState<Record<string, number>>({})
+  const [trade, setTrade] = useState<{ symbol: string; type: "BUY" | "SELL"; quantity: string } | null>(null)
+  const [trading, setTrading] = useState(false)
 
   function getToken() {
     return localStorage.getItem("token")
@@ -45,7 +52,7 @@ export default function DashboardPage() {
     const token = getToken()
     if (!token) return
     try {
-      const res = await fetch("http://localhost:5000/api/wallet", {
+      const res = await fetch(`${API}/api/wallet`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       const d = await res.json()
@@ -64,7 +71,7 @@ export default function DashboardPage() {
     if (!token || !depositAmount || parseFloat(depositAmount) <= 0) return
     setProcessing(true)
     try {
-      const orderRes = await fetch("http://localhost:5000/api/wallet/deposit/create-order", {
+      const orderRes = await fetch(`${API}/api/wallet/deposit/create-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ amount: parseFloat(depositAmount) }),
@@ -89,7 +96,7 @@ export default function DashboardPage() {
         order_id: orderData.order_id,
         handler: async (response: any) => {
           try {
-            const verifyRes = await fetch("http://localhost:5000/api/wallet/deposit/verify", {
+            const verifyRes = await fetch(`${API}/api/wallet/deposit/verify`, {
               method: "POST",
               headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
               body: JSON.stringify({
@@ -137,30 +144,38 @@ export default function DashboardPage() {
     const token = getToken()
     if (!token || !withdrawAmount || parseFloat(withdrawAmount) <= 0) return
     setWithdrawStep(3)
-    await new Promise(r => setTimeout(r, 2000))
-    setWithdrawStep(4)
     setProcessing(true)
     try {
-      const res = await fetch("http://localhost:5000/api/wallet/withdraw", {
+      const body: Record<string, any> = { amount: parseFloat(withdrawAmount), method: withdrawMethod }
+      if (withdrawMethod === "upi") {
+        body.upi_id = withdrawUpi
+      } else {
+        body.account_no = withdrawAccountNo
+        body.ifsc = withdrawIfsc
+      }
+      const res = await fetch(`${API}/api/wallet/withdraw`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ amount: parseFloat(withdrawAmount) }),
+        body: JSON.stringify(body),
       })
       const data = await res.json()
       if (data.success) {
-        await refetchBalance()
+        setWithdrawStep(4)
+      } else {
+        toast.error(data.error || "Withdrawal request failed")
+        resetWithdraw()
       }
     } catch {
-    } finally {
-      await new Promise(r => setTimeout(r, 1500))
-      setProcessing(false)
+      toast.error("Withdrawal request failed")
       resetWithdraw()
+    } finally {
+      setProcessing(false)
     }
   }
 
   // Fetch assets
   useEffect(() => {
-    fetch("http://localhost:5000/api/market/assets")
+    fetch(`${API}/api/market/assets`)
       .then((r) => r.json())
       .then((d) => {
         if (d.success) {
@@ -172,7 +187,7 @@ export default function DashboardPage() {
 
   // Socket connection
   useEffect(() => {
-    const socket: Socket = io("http://localhost:5000", {
+    const socket: Socket = io(`${API}`, {
       transports: ["websocket"],
     })
 
@@ -214,7 +229,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const token = localStorage.getItem("token")
     if (!token) return
-    fetch("http://localhost:5000/api/trading/portfolio", {
+    fetch(`${API}/api/trading/portfolio`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.json())
@@ -239,7 +254,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const token = localStorage.getItem("token")
     if (!token) return
-    fetch("http://localhost:5000/api/trading/performance", {
+    fetch(`${API}/api/trading/performance`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(r => r.json())
@@ -249,18 +264,13 @@ export default function DashboardPage() {
       .catch(() => {})
   }, [])
    
-  const [performance, setPerformance] = useState<any>(null)
-  const [positions, setPositions] = useState<Record<string, number>>({})
-  const [trade, setTrade] = useState<{ symbol: string; type: "BUY" | "SELL"; quantity: string } | null>(null)
-  const [trading, setTrading] = useState(false)
-
   async function executeTrade() {
     if (!trade) return
     const token = localStorage.getItem("token")
     if (!token) return
     setTrading(true)
     try {
-      const res = await fetch(`http://localhost:5000/api/trading/${trade.type === "BUY" ? "buy" : "sell"}`, {
+      const res = await fetch(`${API}/api/trading/${trade.type === "BUY" ? "buy" : "sell"}`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ symbol: trade.symbol, quantity: parseFloat(trade.quantity) }),
@@ -270,10 +280,10 @@ export default function DashboardPage() {
         toast.error(data.error)
       } else {
         const [balanceRes, portfolioRes] = await Promise.all([
-          fetch("http://localhost:5000/api/wallet", {
+          fetch(`${API}/api/wallet`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
-          fetch("http://localhost:5000/api/trading/portfolio", {
+          fetch(`${API}/api/trading/portfolio`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
         ])
@@ -373,7 +383,7 @@ placeholder="Amount (₹)"
               <>
                 <h2 className="text-xl font-bold text-white mb-4">Withdraw Money</h2>
                 <input
-                  type="number" min="0" step="any" placeholder="Amount in USD"
+                  type="number" min="0" step="any" placeholder="Amount in ₹"
                   value={withdrawAmount}
                   onChange={(e) => setWithdrawAmount(e.target.value)}
                   className="w-full mb-4 rounded-lg bg-zinc-800 border border-zinc-600 px-4 py-3 text-sm text-white outline-none focus:border-blue-500"
@@ -470,17 +480,22 @@ placeholder="Amount (₹)"
 
             {withdrawStep === 4 && (
               <div className="flex flex-col items-center py-8">
-                <div className="w-14 h-14 rounded-full bg-green-500/20 border-2 border-green-500 flex items-center justify-center mb-4">
-                  <svg className="w-7 h-7 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                <div className="w-14 h-14 rounded-full bg-yellow-500/20 border-2 border-yellow-500 flex items-center justify-center mb-4">
+                  <svg className="w-7 h-7 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <p className="text-white font-bold text-lg">Withdrawal Complete</p>
-                <p className="text-green-400 text-sm mt-1">
-                  ${parseFloat(withdrawAmount || "0").toLocaleString()} sent to{" "}
-                  {withdrawMethod === "upi" ? withdrawUpi : `Account ${withdrawAccountNo}`}
+                <p className="text-white font-bold text-lg">Withdrawal Submitted</p>
+                <p className="text-yellow-400 text-sm mt-1">
+                  ₹{parseFloat(withdrawAmount || "0").toLocaleString()} requested
                 </p>
-                <p className="text-zinc-600 text-xs mt-3">Funds will arrive in 2-3 business days</p>
+                <p className="text-zinc-500 text-xs mt-3">Pending admin approval</p>
+                <button
+                  onClick={resetWithdraw}
+                  className="mt-4 px-4 py-2 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white text-sm transition-all"
+                >
+                  Close
+                </button>
               </div>
             )}
 
@@ -634,6 +649,7 @@ placeholder="Amount (₹)"
           )
         })}
       </div>
+      <ChatPanel />
     </div>
   )
 }
