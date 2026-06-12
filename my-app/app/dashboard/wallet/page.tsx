@@ -43,7 +43,7 @@ export default function WalletPage() {
       return
     }
 
-    fetch("http://localhost:5000/api/wallet/transactions?limit=100", {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/wallet/transactions?limit=100`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.json())

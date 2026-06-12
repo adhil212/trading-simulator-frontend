@@ -50,7 +50,7 @@ export default function HistoryPage() {
       return
     }
 
-    fetch("http://localhost:5000/api/trading/closed?limit=1000", {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/trading/closed?limit=1000`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.json())

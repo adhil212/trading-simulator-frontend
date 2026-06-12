@@ -31,7 +31,6 @@ export default function PortfolioPage() {
   const [data, setData] = useState<PortfolioData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
-  const [growth, setGrowth] = useState<any>(null)
 
   useEffect(() => {
     const token = localStorage.getItem("token")
@@ -41,7 +40,7 @@ export default function PortfolioPage() {
       return
     }
 
-    const socket: Socket = io("http://localhost:5000", {
+    const socket: Socket = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000", {
       transports: ["websocket"],
     })
 
@@ -116,17 +115,6 @@ export default function PortfolioPage() {
     })
 
     return () => { socket.disconnect() }
-  }, [])
-
-  useEffect(() => {
-    const token = localStorage.getItem("token")
-    if (!token) return
-    fetch("http://localhost:5000/api/portfolio/growth?days=1", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(r => r.json())
-      .then(d => { if (d.growthData) setGrowth(d) })
-      .catch(() => {})
   }, [])
 
   if (loading) {
