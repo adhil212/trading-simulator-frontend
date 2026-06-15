@@ -41,7 +41,9 @@ export default function Home() {
       fetch(`${API_URL}/api/market/prices`)
         .then((r) => r.json())
         .then((d) => { if (d.success) setPrices(d.data) })
-        .catch(() => {})
+        .catch(() => {
+          console.error("Failed to fetch market prices")
+        })
     }
     fetchPrices()
     const id = setInterval(fetchPrices, 30000)

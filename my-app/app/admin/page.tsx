@@ -1,6 +1,6 @@
     "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Users,
   ArrowLeftRight,
@@ -28,7 +28,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -49,39 +49,13 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchStats();
   }, []);
 
-  if (loading) {
-    return (
-      <div className="p-6 flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500" />
-      </div>
-    );
-  }
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
-  if (error && !stats) {
-    return (
-      <div className="p-6 flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <p className="text-red-400 mb-4">{error}</p>
-          <button
-            onClick={fetchStats}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700 transition-colors text-sm mx-auto"
-          >
-            <RefreshCw size={16} />
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const statCards = [
+  const statCards = useMemo(() => [
     {
       label: "Total Users",
       value: stats?.users?.total ?? 0,
@@ -97,8 +71,8 @@ export default function AdminDashboard() {
       bg: "bg-purple-500/10",
     },
     {
-      label: "Total Volume",
-      value: `₹${Number(stats?.trades?.totalVolume ?? 0).toLocaleString()}`,
+      label: "Today's Volume",
+      value: `₹${Number(stats?.trades?.todayVolume ?? 0).toLocaleString()}`,
       icon: <DollarSign size={24} />,
       color: "text-green-500",
       bg: "bg-green-500/10",
@@ -110,12 +84,75 @@ export default function AdminDashboard() {
       color: "text-yellow-500",
       bg: "bg-yellow-500/10",
     },
-  ];
+  ], [stats]);
+
+  if (loading) {
+    return (
+      <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 animate-pulse">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="h-8 w-48 bg-zinc-800/50 rounded-lg" />
+          <div className="h-9 w-20 bg-zinc-800/50 rounded-lg" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="rounded-xl border border-zinc-800 p-5 bg-[#111318] space-y-3">
+              <div className="h-4 w-24 bg-zinc-800/50 rounded" />
+              <div className="h-7 w-32 bg-zinc-800/50 rounded" />
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {[...Array(2)].map((_, i) => (
+            <div key={i} className="rounded-xl border border-zinc-800 p-5 bg-[#111318]">
+              <div className="h-5 w-44 bg-zinc-800/50 rounded mb-4" />
+              <div className="h-[200px] sm:h-[250px] bg-zinc-800/30 rounded" />
+            </div>
+          ))}
+        </div>
+        <div className="rounded-xl border border-zinc-800 p-5 bg-[#111318]">
+          <div className="h-5 w-40 bg-zinc-800/50 rounded mb-4" />
+          <div className="space-y-3">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="h-8 bg-zinc-800/30 rounded" />
+            ))}
+          </div>
+        </div>
+        <div className="rounded-xl border border-zinc-800 p-5 bg-[#111318]">
+          <div className="h-5 w-36 bg-zinc-800/50 rounded mb-4" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="space-y-1">
+                <div className="h-4 w-16 bg-zinc-800/50 rounded" />
+                <div className="h-4 w-10 bg-zinc-800/50 rounded" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !stats) {
+    return (
+      <div className="p-4 sm:p-6 flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-red-400 mb-4">{error}</p>
+          <button
+            onClick={fetchStats}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700 transition-colors text-sm mx-auto"
+          >
+            <RefreshCw size={16} />
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Admin Dashboard</h1>
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h1 className="text-xl sm:text-2xl font-bold text-white">Admin Dashboard</h1>
         <button
           onClick={fetchStats}
           className="px-4 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700 transition-colors text-sm"
@@ -210,10 +247,10 @@ export default function AdminDashboard() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-zinc-500 border-b border-zinc-800">
-                  <th className="text-left py-3 px-2">#</th>
-                  <th className="text-left py-3 px-2">Username</th>
-                  <th className="text-right py-3 px-2">Closed Trades</th>
-                  <th className="text-right py-3 px-2">Total P&L</th>
+                  <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4">#</th>
+                  <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4">Username</th>
+                  <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4 hidden sm:table-cell">Closed Trades</th>
+                  <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4">Total P&L</th>
                 </tr>
               </thead>
               <tbody>
@@ -222,13 +259,13 @@ export default function AdminDashboard() {
                     key={trader.id}
                     className="border-b border-zinc-800/50 hover:bg-zinc-800/20"
                   >
-                    <td className="py-3 px-2 text-zinc-500">{i + 1}</td>
-                    <td className="py-3 px-2 text-white">{trader.username}</td>
-                    <td className="py-3 px-2 text-right">
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-zinc-500">{i + 1}</td>
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-white">{trader.username}</td>
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-right hidden sm:table-cell">
                       {trader.closed_trades}
                     </td>
                     <td
-                      className={`py-3 px-2 text-right font-medium ${
+                      className={`py-2.5 sm:py-3 px-3 sm:px-4 text-right font-medium ${
                         Number(trader.total_pnl) >= 0
                           ? "text-green-500"
                           : "text-red-500"
@@ -250,7 +287,7 @@ export default function AdminDashboard() {
             <TrendingUp size={18} className="inline mr-2" />
             Engine Status
           </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
             <div>
               <span className="text-zinc-500">Running:</span>{" "}
               <span
@@ -273,12 +310,6 @@ export default function AdminDashboard() {
               <span className="text-zinc-500">Assets:</span>{" "}
               <span className="text-white">
                 {stats.engineStatus.assetsCount}
-              </span>
-            </div>
-            <div>
-              <span className="text-zinc-500">Uptime:</span>{" "}
-              <span className="text-white">
-                {Math.floor(stats.engineStatus.uptime / 60)}m
               </span>
             </div>
           </div>

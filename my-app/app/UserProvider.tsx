@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, ReactNode } from "react"
 
 type User = {
   id?: number
@@ -28,11 +28,33 @@ function decodeJwtPayload(token: string) {
   }
 }
 
+export function isTokenExpired(token: string): boolean {
+  const decoded = decodeJwtPayload(token)
+  if (!decoded || !decoded.exp) return true
+  return Date.now() >= decoded.exp * 1000
+}
+
+function logout() {
+  localStorage.removeItem("token")
+  localStorage.removeItem("user")
+  localStorage.removeItem("username")
+  if (typeof window !== "undefined") {
+    window.location.href = "/auth"
+  }
+}
+
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User>(() => {
     if (typeof window === "undefined") return null
 
     const token = localStorage.getItem("token")
+    if (token && isTokenExpired(token)) {
+      localStorage.removeItem("token")
+      localStorage.removeItem("user")
+      localStorage.removeItem("username")
+      return null
+    }
+
     const decoded = token ? decodeJwtPayload(token) : null
 
     const storedUser = localStorage.getItem("user")
@@ -53,6 +75,28 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return null
   })
 
+  useEffect(() => {
+    function handleStorage(e: StorageEvent) {
+      if (e.key === "token" && !e.newValue) {
+        setUser(null)
+      }
+      if (e.key === "token" && e.newValue) {
+        const decoded = decodeJwtPayload(e.newValue)
+        const storedUser = localStorage.getItem("user")
+        if (storedUser) {
+          try {
+            const parsed = JSON.parse(storedUser)
+            setUser({ ...parsed, is_admin: decoded?.is_admin || false })
+          } catch {
+            setUser(null)
+          }
+        }
+      }
+    }
+    window.addEventListener("storage", handleStorage)
+    return () => window.removeEventListener("storage", handleStorage)
+  }, [])
+
   return (
     <UserContext.Provider value={{ user, setUser }}>
       {children}
@@ -65,3 +109,5 @@ export function useUser() {
   if (!ctx) throw new Error("useUser must be used within UserProvider")
   return ctx
 }
+
+export { logout, decodeJwtPayload }

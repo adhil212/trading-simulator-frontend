@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Plus, Edit2, Trash2, X, RefreshCw } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -31,7 +31,7 @@ export default function AdminAssets() {
   const [form, setForm] = useState({ ...emptyForm });
   const [submitting, setSubmitting] = useState(false);
 
-  const fetchAssets = async () => {
+  const fetchAssets = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -52,20 +52,19 @@ export default function AdminAssets() {
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchAssets();
   }, []);
 
-  const openAdd = () => {
+  useEffect(() => {
+    fetchAssets();
+  }, [fetchAssets]);
+
+  const openAdd = useCallback(() => {
     setEditingSymbol(null);
     setForm({ ...emptyForm });
     setShowModal(true);
-  };
+  }, []);
 
-  const openEdit = (asset: any) => {
+  const openEdit = useCallback((asset: any) => {
     setEditingSymbol(asset.symbol);
     setForm({
       symbol: asset.symbol,
@@ -81,9 +80,9 @@ export default function AdminAssets() {
       trendStrength: String(asset.trend_strength ?? 0.5),
     });
     setShowModal(true);
-  };
+  }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     const token = localStorage.getItem("token");
     const payload = {
@@ -128,9 +127,9 @@ export default function AdminAssets() {
     } finally {
       setSubmitting(false);
     }
-  };
+  }, [form, editingSymbol, fetchAssets]);
 
-  const handleDelete = async (symbol: string) => {
+  const handleDelete = useCallback(async (symbol: string) => {
     if (!confirm(`Permanently delete asset "${symbol}"? This cannot be undone.`)) return;
     const token = localStorage.getItem("token");
     try {
@@ -148,11 +147,11 @@ export default function AdminAssets() {
     } catch {
       toast.error("Failed to delete asset");
     }
-  };
+  }, [fetchAssets]);
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 sm:p-6 space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-2xl font-bold text-white">Asset Management</h1>
         <div className="flex items-center gap-2">
           <button
@@ -177,14 +176,14 @@ export default function AdminAssets() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-zinc-500 border-b border-zinc-800 bg-zinc-900/50">
-                <th className="text-left py-3 px-4">Symbol</th>
-                <th className="text-left py-3 px-4">Name</th>
-                <th className="text-left py-3 px-4">Type</th>
-                <th className="text-right py-3 px-4">Base Price</th>
-                <th className="text-right py-3 px-4">Volatility</th>
-                <th className="text-right py-3 px-4">Spread</th>
-                <th className="text-center py-3 px-4">Trending</th>
-                <th className="text-right py-3 px-4">Actions</th>
+                <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4">Symbol</th>
+                <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4">Name</th>
+                <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 hidden sm:table-cell">Type</th>
+                <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4">Base Price</th>
+                <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4 hidden sm:table-cell">Volatility</th>
+                <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4 hidden sm:table-cell">Spread</th>
+                <th className="text-center py-2.5 sm:py-3 px-3 sm:px-4 hidden sm:table-cell">Trending</th>
+                <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -212,25 +211,25 @@ export default function AdminAssets() {
                     key={a.symbol}
                     className="border-b border-zinc-800/50 hover:bg-zinc-800/20"
                   >
-                    <td className="py-3 px-4 text-white font-medium">
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-white font-medium">
                       {a.symbol}
                     </td>
-                    <td className="py-3 px-4 text-zinc-300">{a.name}</td>
-                    <td className="py-3 px-4">
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-zinc-300">{a.name}</td>
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 hidden sm:table-cell">
                       <span className="text-xs font-medium bg-zinc-800 px-2 py-0.5 rounded-full text-zinc-300">
                         {a.type}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-right text-white">
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-right text-white">
                       ₹{Number(a.base_price).toLocaleString()}
                     </td>
-                    <td className="py-3 px-4 text-right text-zinc-400">
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-right text-zinc-400 hidden sm:table-cell">
                       {a.volatility}
                     </td>
-                    <td className="py-3 px-4 text-right text-zinc-400">
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-right text-zinc-400 hidden sm:table-cell">
                       {a.spread}
                     </td>
-                    <td className="py-3 px-4 text-center">
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-center hidden sm:table-cell">
                       {a.trending ? (
                         <span className="text-green-500 text-xs font-medium bg-green-500/10 px-2 py-0.5 rounded-full">
                           Yes
@@ -239,7 +238,7 @@ export default function AdminAssets() {
                         <span className="text-zinc-600 text-xs">No</span>
                       )}
                     </td>
-                    <td className="py-3 px-4 text-right">
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => openEdit(a)}
@@ -267,7 +266,7 @@ export default function AdminAssets() {
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="bg-[#111318] border border-zinc-800 rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="bg-[#111318] border border-zinc-800 rounded-xl p-4 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto mx-4 sm:mx-0">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-white">
                 {editingSymbol ? "Edit Asset" : "Add New Asset"}
@@ -281,7 +280,7 @@ export default function AdminAssets() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1">Symbol *</label>
                   <input
@@ -305,7 +304,7 @@ export default function AdminAssets() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1">Type *</label>
                   <select
@@ -333,7 +332,7 @@ export default function AdminAssets() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1">Volatility *</label>
                   <input
@@ -360,7 +359,7 @@ export default function AdminAssets() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1">Max Trend *</label>
                   <input
@@ -387,7 +386,7 @@ export default function AdminAssets() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs text-zinc-500 mb-1">Trend</label>
                   <input

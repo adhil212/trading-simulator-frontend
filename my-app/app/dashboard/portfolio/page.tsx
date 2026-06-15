@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { TrendingUp, TrendingDown, Loader2 } from "lucide-react"
 import toast from "react-hot-toast"
-import { io, Socket } from "socket.io-client"
+import { getSocket } from "../../../lib/socket"
 
 type Position = {
   symbol: string
@@ -40,12 +40,10 @@ export default function PortfolioPage() {
       return
     }
 
-    const socket: Socket = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000", {
-      transports: ["websocket"],
-    })
+    const socket = getSocket()
 
-    socket.on("connect", () => {
-      socket.emit("getPortfolioData", { token }, (res: any) => {
+    const onConnect = () => {
+      socket.emit("getPortfolioData", {}, (res: any) => {
         if (res.error) {
           setError(res.error)
         } else {
@@ -53,9 +51,9 @@ export default function PortfolioPage() {
         }
         setLoading(false)
       })
-    })
+    }
 
-    socket.on("priceUpdate", (updates: Record<string, { last: number }>) => {
+    const onPriceUpdate = (updates: Record<string, { last: number }>) => {
       setData((prev) => {
         if (!prev) return prev
         const positions = prev.portfolio.positions.map((pos) => {
@@ -85,21 +83,10 @@ export default function PortfolioPage() {
           },
         }
       })
-    })
+    }
 
-    socket.on("connect_error", (err) => {
-      setError(err.message)
-      setLoading(false)
-    })
-
-    socket.on("disconnect", (reason) => {
-      if (reason === "io server disconnect" || reason === "transport close") {
-        toast.error("Disconnected from server")
-      }
-    })
-
-    socket.on("reconnect", () => {
-      socket.emit("getPortfolioData", { token }, (res: any) => {
+    const onReconnect = () => {
+      socket.emit("getPortfolioData", {}, (res: any) => {
         if (res.error) {
           setError(res.error)
         } else {
@@ -107,14 +94,21 @@ export default function PortfolioPage() {
         }
         setLoading(false)
       })
-      toast.success("Reconnected to server")
-    })
+    }
 
-    socket.on("reconnect_failed", () => {
-      toast.error("Could not reconnect to server")
-    })
+    socket.on("connect", onConnect)
+    socket.on("priceUpdate", onPriceUpdate)
+    socket.on("reconnect", onReconnect)
 
-    return () => { socket.disconnect() }
+    if (socket.connected) {
+      onConnect()
+    }
+
+    return () => {
+      socket.off("connect", onConnect)
+      socket.off("priceUpdate", onPriceUpdate)
+      socket.off("reconnect", onReconnect)
+    }
   }, [])
 
   if (loading) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { ChevronLeft, ChevronRight, CheckCircle, XCircle } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -14,7 +14,7 @@ export default function AdminWithdrawals() {
   const [offset, setOffset] = useState(0);
   const limit = 50;
 
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -37,15 +37,13 @@ export default function AdminWithdrawals() {
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchRequests();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [offset]);
 
-  const handleApprove = async (id: number) => {
+  useEffect(() => {
+    fetchRequests();
+  }, [fetchRequests]);
+
+  const handleApprove = useCallback(async (id: number) => {
     const token = localStorage.getItem("token");
     try {
       const res = await fetch(`${API}/api/admin/withdrawal-requests/${id}/approve`, {
@@ -62,9 +60,9 @@ export default function AdminWithdrawals() {
     } catch {
       toast.error("Failed to approve withdrawal");
     }
-  };
+  }, [fetchRequests]);
 
-  const handleReject = async (id: number) => {
+  const handleReject = useCallback(async (id: number) => {
     const token = localStorage.getItem("token");
     try {
       const res = await fetch(`${API}/api/admin/withdrawal-requests/${id}/reject`, {
@@ -81,15 +79,15 @@ export default function AdminWithdrawals() {
     } catch {
       toast.error("Failed to reject withdrawal");
     }
-  };
+  }, [fetchRequests]);
 
-  const totalPages = Math.ceil(total / limit);
-  const currentPage = Math.floor(offset / limit) + 1;
+  const totalPages = useMemo(() => Math.ceil(total / limit), [total, limit]);
+  const currentPage = useMemo(() => Math.floor(offset / limit) + 1, [offset, limit]);
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Withdrawal Requests</h1>
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h1 className="text-xl sm:text-2xl font-bold text-white">Withdrawal Requests</h1>
         <button
           onClick={fetchRequests}
           className="px-4 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700 transition-colors text-sm"
@@ -103,23 +101,31 @@ export default function AdminWithdrawals() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-zinc-500 border-b border-zinc-800 bg-zinc-900/50">
-                <th className="text-left py-3 px-4">ID</th>
-                <th className="text-left py-3 px-4">User</th>
-                <th className="text-right py-3 px-4">Amount</th>
-                <th className="text-left py-3 px-4">Method</th>
-                <th className="text-left py-3 px-4">Destination</th>
-                <th className="text-right py-3 px-4">Date</th>
-                <th className="text-center py-3 px-4">Action</th>
+                <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 hidden md:table-cell">ID</th>
+                <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4">User</th>
+                <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4">Amount</th>
+                <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 hidden sm:table-cell">Method</th>
+                <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 hidden sm:table-cell">Destination</th>
+                <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4 hidden sm:table-cell">Date</th>
+                <th className="text-center py-2.5 sm:py-3 px-3 sm:px-4">Action</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <td colSpan={7} className="text-center py-8 text-zinc-500">Loading...</td>
-                </tr>
+                [...Array(5)].map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 hidden md:table-cell"><div className="h-4 w-8 bg-zinc-800/50 rounded" /></td>
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4"><div className="h-4 w-28 bg-zinc-800/50 rounded" /></td>
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4"><div className="h-4 w-16 bg-zinc-800/50 rounded ml-auto" /></td>
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 hidden sm:table-cell"><div className="h-4 w-14 bg-zinc-800/50 rounded" /></td>
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 hidden sm:table-cell"><div className="h-4 w-24 bg-zinc-800/50 rounded" /></td>
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 hidden sm:table-cell"><div className="h-4 w-20 bg-zinc-800/50 rounded ml-auto" /></td>
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4"><div className="h-6 w-16 bg-zinc-800/50 rounded ml-auto" /></td>
+                  </tr>
+                ))
               ) : requests.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-8 text-zinc-500">
+                  <td colSpan={7} className="text-center py-6 sm:py-8 text-zinc-500">
                     {error || "No pending withdrawal requests"}
                   </td>
                 </tr>
@@ -128,28 +134,28 @@ export default function AdminWithdrawals() {
                   const details = req.details || {};
                   return (
                     <tr key={req.id} className="border-b border-zinc-800/50 hover:bg-zinc-800/20">
-                      <td className="py-3 px-4 text-zinc-400">{req.id}</td>
-                      <td className="py-3 px-4">
+                      <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-zinc-400 hidden md:table-cell">{req.id}</td>
+                      <td className="py-2.5 sm:py-3 px-3 sm:px-4">
                         <span className="text-white">{req.username}</span>
-                        <span className="text-zinc-600 text-xs ml-1">(ID: {req.user_id})</span>
+                        <span className="text-zinc-600 text-xs ml-1 hidden sm:inline">(ID: {req.user_id})</span>
                       </td>
-                      <td className="py-3 px-4 text-right text-yellow-500 font-medium">
+                      <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-right text-yellow-500 font-medium">
                         ₹{Number(req.amount).toLocaleString()}
                       </td>
-                      <td className="py-3 px-4 uppercase text-xs font-medium text-zinc-400">
+                      <td className="py-2.5 sm:py-3 px-3 sm:px-4 uppercase text-xs font-medium text-zinc-400 hidden sm:table-cell">
                         {details.method || "—"}
                       </td>
-                      <td className="py-3 px-4 text-zinc-300 text-xs">
+                      <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-zinc-300 text-xs hidden sm:table-cell">
                         {details.method === "upi"
-                          ? details.upi_id
+                          ? details.upi_id?.replace(/^(.{4}).*(.{2})$/, "$1****$2") || "—"
                           : details.method === "bank"
-                          ? `${details.account_no || ""} ${details.ifsc || ""}`
+                          ? `${(details.account_no || "").replace(/^(.{4}).*$/, "$1****")} ${details.ifsc || ""}`
                           : "—"}
                       </td>
-                      <td className="py-3 px-4 text-right text-zinc-400 text-xs">
+                      <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-right text-zinc-400 text-xs hidden sm:table-cell">
                         {new Date(req.created_at).toLocaleString()}
                       </td>
-                      <td className="py-3 px-4 text-center">
+                      <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <button
                             onClick={() => handleApprove(req.id)}
@@ -181,7 +187,7 @@ export default function AdminWithdrawals() {
       </div>
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-between text-sm">
+        <div className="flex items-center justify-between text-sm flex-col sm:flex-row gap-3">
           <span className="text-zinc-500">
             Showing {offset + 1}-{Math.min(offset + limit, total)} of {total}
           </span>

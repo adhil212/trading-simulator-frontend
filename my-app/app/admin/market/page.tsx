@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { RefreshCw, Activity, BarChart3 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -13,7 +13,7 @@ export default function AdminMarket() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchMarketData = async () => {
+  const fetchMarketData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -47,12 +47,11 @@ export default function AdminMarket() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchMarketData();
-  }, []);
+  }, [fetchMarketData]);
 
 
   const typeIcons: Record<string, string> = {
@@ -68,7 +67,7 @@ export default function AdminMarket() {
 
   if (loading && !error) {
     return (
-      <div className="p-6 flex items-center justify-center min-h-[50vh]">
+      <div className="p-4 sm:p-6 flex items-center justify-center min-h-[50vh]">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500" />
       </div>
     );
@@ -77,7 +76,7 @@ export default function AdminMarket() {
   const symbols = prices ? Object.keys(prices) : [];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white">Market Controls</h1>
         <button
@@ -96,7 +95,7 @@ export default function AdminMarket() {
       )}
 
       {status && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <div className="rounded-xl border border-zinc-800 p-4 bg-[#111318]">
             <div className="flex items-center gap-2 mb-1">
               <Activity size={14} className="text-zinc-500" />
@@ -122,13 +121,6 @@ export default function AdminMarket() {
               {status.assetsCount}
             </p>
           </div>
-          <div className="rounded-xl border border-zinc-800 p-4 bg-[#111318]">
-            <span className="text-xs text-zinc-500">Uptime</span>
-            <p className="text-lg font-bold text-white">
-              {Math.floor(status.uptime / 60)}m{" "}
-              {Math.floor(status.uptime % 60)}s
-            </p>
-          </div>
         </div>
       )}
 
@@ -141,12 +133,12 @@ export default function AdminMarket() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-zinc-500 border-b border-zinc-800">
-                <th className="text-left py-3 px-2">Symbol</th>
-                <th className="text-right py-3 px-2">Bid</th>
-                <th className="text-right py-3 px-2">Ask</th>
-                <th className="text-right py-3 px-2">Last</th>
-                <th className="text-right py-3 px-2">Change</th>
-                <th className="text-right py-3 px-2">Volume</th>
+                <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4">Symbol</th>
+                <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4">Bid</th>
+                <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4">Ask</th>
+                <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4">Last</th>
+                <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4 hidden sm:table-cell">Change</th>
+                <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4 hidden sm:table-cell">Volume</th>
               </tr>
             </thead>
             <tbody>
@@ -164,30 +156,30 @@ export default function AdminMarket() {
                     key={symbol}
                     className="border-b border-zinc-800/50 hover:bg-zinc-800/20"
                   >
-                    <td className="py-3 px-2">
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4">
                       <span className="mr-2">{getSymbolIcon(symbol)}</span>
                       <span className="text-white font-medium">
                         {p.name || symbol}
                       </span>
                     </td>
-                    <td className="py-3 px-2 text-right">
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-right">
                       ₹{p.bid?.toFixed?.(p.bid < 10 ? 4 : 2) ?? "-"}
                     </td>
-                    <td className="py-3 px-2 text-right">
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-right">
                       ₹{p.ask?.toFixed?.(p.ask < 10 ? 4 : 2) ?? "-"}
                     </td>
-                    <td className="py-3 px-2 text-right text-white font-medium">
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-right text-white font-medium">
                       ₹{p.last?.toFixed?.(p.last < 10 ? 4 : 2) ?? "-"}
                     </td>
                     <td
-                      className={`py-3 px-2 text-right ${
+                      className={`py-2.5 sm:py-3 px-3 sm:px-4 text-right hidden sm:table-cell ${
                         isPositive ? "text-green-500" : "text-red-500"
                       }`}
                     >
                       {isPositive ? "+" : ""}
                       {p.changePercent?.toFixed?.(2)}%
                     </td>
-                    <td className="py-3 px-2 text-right text-zinc-400">
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-right text-zinc-400 hidden sm:table-cell">
                       {p.volume?.toLocaleString?.() || "-"}
                     </td>
                   </tr>

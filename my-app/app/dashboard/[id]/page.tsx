@@ -7,8 +7,8 @@ import {
   ISeriesApi, 
   ColorType 
 } from "lightweight-charts";
-import { io, Socket } from "socket.io-client";
 import toast from "react-hot-toast";
+import { getSocket } from "../../../lib/socket";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -117,18 +117,20 @@ export default function AssetDetailPage() {
           currentCandle.current = null;
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        toast.error("Failed to load candle data");
+      });
   }, [id, timeframe]);
 
   useEffect(() => {
     if (!id) return;
-    const socket: Socket = io(API, {
-      transports: ['websocket'],
-    });
-    socket.on('connect', () => {
+    const socket = getSocket();
+
+    const onConnect = () => {
       socket.emit('getPrice', { symbol: id });
-    });
-    socket.on('priceUpdate', (updates) => {
+    };
+
+    const onPriceUpdate = (updates: any) => {
       if (!updates[id] || !seriesRef.current) return;
       const priceData = updates[id];
       const lastPrice = Number(priceData.last);
@@ -151,27 +153,32 @@ export default function AssetDetailPage() {
         currentCandle.current.close = lastPrice;
       }
       seriesRef.current.update(currentCandle.current);
-    });
-    socket.on('priceData', (result) => {
+    };
+
+    const onPriceData = (result: any) => {
       if (result.success && result.data) {
         setPrice(Number(result.data.last));
       }
-    });
-    socket.on('connect_error', () => {});
-    socket.on('disconnect', (reason) => {
-      if (reason === 'io server disconnect' || reason === 'transport close') {
-        toast.error('Disconnected from server');
-      }
-    });
-    socket.on('reconnect', () => {
+    };
+
+    const onReconnect = () => {
       socket.emit('getPrice', { symbol: id });
-      toast.success('Reconnected to server');
-    });
-    socket.on('reconnect_failed', () => {
-      toast.error('Could not reconnect to server');
-    });
+    };
+
+    socket.on('connect', onConnect);
+    socket.on('priceUpdate', onPriceUpdate);
+    socket.on('priceData', onPriceData);
+    socket.on('reconnect', onReconnect);
+
+    if (socket.connected) {
+      socket.emit('getPrice', { symbol: id });
+    }
+
     return () => {
-      socket.disconnect();
+      socket.off('connect', onConnect);
+      socket.off('priceUpdate', onPriceUpdate);
+      socket.off('priceData', onPriceData);
+      socket.off('reconnect', onReconnect);
     };
   }, [id]);
 

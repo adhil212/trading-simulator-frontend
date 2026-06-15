@@ -2,10 +2,10 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { io, Socket } from "socket.io-client"
 import { Loader2 } from "lucide-react"
 import ChatPanel from "./ChatPanel"
 import toast from "react-hot-toast"
+import { getSocket } from "../../lib/socket"
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
 
@@ -57,7 +57,9 @@ export default function DashboardPage() {
       })
       const d = await res.json()
       if (d.balance !== undefined) setBalance(d.balance)
-    } catch {}
+    } catch {
+      console.error("Failed to fetch balance")
+    }
   }
 
   function closeDepositModal() {
@@ -66,9 +68,16 @@ export default function DashboardPage() {
     setProcessing(false)
   }
 
+  function handleKeyDown(e: React.KeyboardEvent, close: () => void) {
+    if (e.key === "Escape") close()
+  }
+
   async function handleDeposit() {
     const token = getToken()
-    if (!token || !depositAmount || parseFloat(depositAmount) <= 0) return
+    if (!token || !depositAmount || parseFloat(depositAmount) <= 0) {
+      toast.error("Please enter a valid positive amount")
+      return
+    }
     setProcessing(true)
     try {
       const orderRes = await fetch(`${API}/api/wallet/deposit/create-order`, {
@@ -182,18 +191,14 @@ export default function DashboardPage() {
           setAssets(d.data)
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        toast.error("Failed to load assets")
+      })
   }, [])
 
   // Socket connection
   useEffect(() => {
-    const socket: Socket = io(`${API}`, {
-      transports: ["websocket"],
-    })
-
-    socket.on("connect", () => {
-      console.log("✅ Socket connected:", socket.id)
-    })
+    const socket = getSocket()
 
     socket.on("priceUpdate", (data: PricesState) => {
       setPrices(data)
@@ -204,24 +209,9 @@ export default function DashboardPage() {
       setLoading(false)
     })
 
-    socket.on("error", () => {})
-
-    socket.on("disconnect", (reason) => {
-      if (reason === "io server disconnect" || reason === "transport close") {
-        toast.error("Disconnected from server")
-      }
-    })
-
-    socket.on("reconnect", () => {
-      toast.success("Reconnected to server")
-    })
-
-    socket.on("reconnect_failed", () => {
-      toast.error("Could not reconnect to server")
-    })
-
     return () => {
-      socket.disconnect()
+      socket.off("priceUpdate")
+      socket.off("connect_error")
     }
   }, [])
 
@@ -242,7 +232,9 @@ export default function DashboardPage() {
           setPositions(map)
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        console.error("Failed to fetch portfolio")
+      })
   }, [])
 
   // Fetch wallet balance
@@ -261,13 +253,16 @@ export default function DashboardPage() {
       .then(d => {
         if (d.totalTrades !== undefined) setPerformance(d)
       })
-      .catch(() => {})
+      .catch(() => {
+        console.error("Failed to fetch performance")
+      })
   }, [])
    
   async function executeTrade() {
     if (!trade) return
     const token = localStorage.getItem("token")
     if (!token) return
+    if (!window.confirm(`Confirm ${trade.type} ${parseFloat(trade.quantity)} units of ${trade.symbol}?`)) return
     setTrading(true)
     try {
       const res = await fetch(`${API}/api/trading/${trade.type === "BUY" ? "buy" : "sell"}`, {
@@ -344,14 +339,22 @@ export default function DashboardPage() {
       </div>
 
       {showDeposit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowDeposit(false)}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Deposit money"
+          onClick={() => setShowDeposit(false)}
+          onKeyDown={(e) => handleKeyDown(e, closeDepositModal)}
+          tabIndex={-1}
+        >
           <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-xl font-bold text-white mb-4">Deposit Money</h2>
             <input
               type="number"
               min="0"
               step="any"
-placeholder="Amount (₹)"
+              placeholder="Amount (₹)"
               value={depositAmount}
               onChange={(e) => setDepositAmount(e.target.value)}
               className="w-full mb-4 rounded-lg bg-zinc-800 border border-zinc-600 px-4 py-3 text-sm text-white outline-none focus:border-blue-500"
@@ -376,7 +379,15 @@ placeholder="Amount (₹)"
       )}
 
       {showWithdraw && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => { if (withdrawStep < 3) resetWithdraw() }}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Withdraw money"
+          onClick={() => { if (withdrawStep < 3) resetWithdraw() }}
+          onKeyDown={(e) => { if (e.key === "Escape" && withdrawStep < 3) resetWithdraw() }}
+          tabIndex={-1}
+        >
           <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
 
             {withdrawStep === 1 && (

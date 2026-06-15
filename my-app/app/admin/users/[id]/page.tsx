@@ -1,27 +1,25 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Wallet, Layers, History, Plus, Minus, ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { ArrowLeft, Wallet, Layers, History, Trash2, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import toast from "react-hot-toast";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 export default function AdminUserDetail() {
   const params = useParams();
+  const router = useRouter();
   const userId = params.id as string;
 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showRecharge, setShowRecharge] = useState(false);
-  const [showDeduct, setShowDeduct] = useState(false);
-  const [actionAmount, setActionAmount] = useState("");
-  const [actionReason, setActionReason] = useState("");
-  const [actionLoading, setActionLoading] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const fetchUserDetail = async () => {
+  const fetchUserDetail = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -42,64 +40,77 @@ export default function AdminUserDetail() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchUserDetail();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, [fetchUserDetail]);
+
+  const handleDelete = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    setDeleteLoading(true);
+    try {
+      const res = await fetch(`${API}/api/admin/users/${userId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const d = await res.json();
+      if (d.success) {
+        toast.success("User deleted successfully");
+        router.push("/admin/users");
+      } else {
+        toast.error(d.error || "Failed to delete user");
+      }
+    } catch {
+      toast.error("Failed to delete user");
+    } finally {
+      setDeleteLoading(false);
+    }
+  }, [userId, router]);
 
   if (loading) {
     return (
-      <div className="p-6 flex items-center justify-center min-h-[50vh]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500" />
+      <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 animate-pulse">
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="h-9 w-9 rounded-lg bg-zinc-800/50" />
+          <div className="space-y-1.5">
+            <div className="h-6 w-40 bg-zinc-800/50 rounded" />
+            <div className="h-4 w-56 bg-zinc-800/50 rounded" />
+          </div>
+          <div className="h-5 w-12 bg-zinc-800/50 rounded-full" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="rounded-xl border border-zinc-800 p-5 bg-[#111318] space-y-3">
+              <div className="h-4 w-28 bg-zinc-800/50 rounded" />
+              <div className="h-7 w-20 bg-zinc-800/50 rounded" />
+            </div>
+          ))}
+        </div>
+        <div className="rounded-xl border border-zinc-800 p-5 bg-[#111318]">
+          <div className="h-5 w-32 bg-zinc-800/50 rounded mb-4" />
+          <div className="space-y-3">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="h-8 bg-zinc-800/30 rounded" />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
 
   if (!data || !data.user) {
     return (
-      <div className="p-6 text-center text-zinc-500">{error || "User not found"}</div>
+      <div className="p-4 sm:p-6 text-center text-zinc-500">{error || "User not found"}</div>
     );
   }
 
   const { user, wallet, portfolio, trades, transactions } = data;
 
-  const handleAction = async (type: "recharge" | "deduct") => {
-    const token = localStorage.getItem("token");
-    if (!token || !actionAmount || parseFloat(actionAmount) <= 0) return;
-    setActionLoading(true);
-    try {
-      const url = type === "recharge"
-        ? `${API}/api/admin/users/${userId}/recharge`
-        : `${API}/api/admin/users/${userId}/deduct`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ amount: parseFloat(actionAmount), reason: actionReason }),
-      });
-      const d = await res.json();
-      if (d.success) {
-        toast.success(type === "recharge" ? "Wallet recharged" : "Amount deducted");
-        setShowRecharge(false);
-        setShowDeduct(false);
-        setActionAmount("");
-        setActionReason("");
-        fetchUserDetail();
-      } else {
-        toast.error(d.error || "Action failed");
-      }
-    } catch {
-      toast.error("Action failed");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center gap-4">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+      <div className="flex items-center gap-4 flex-wrap">
         <Link
           href="/admin/users"
           className="p-2 rounded-lg bg-zinc-900 border border-zinc-700 text-zinc-400 hover:text-white transition-colors"
@@ -115,6 +126,15 @@ export default function AdminUserDetail() {
             Admin
           </span>
         )}
+        {!user.is_admin && (
+          <button
+            onClick={() => setShowDelete(true)}
+            className="ml-auto p-2 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors"
+            title="Delete user"
+          >
+            <Trash2 size={18} />
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -125,20 +145,6 @@ export default function AdminUserDetail() {
           <p className="text-2xl font-bold text-white">
             ₹{Number(wallet?.balance || 0).toLocaleString()}
           </p>
-          <div className="flex gap-2 mt-3">
-            <button
-              onClick={() => setShowRecharge(true)}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-500/10 text-green-500 hover:bg-green-500/20 text-xs font-medium transition-colors"
-            >
-              <Plus size={14} /> Recharge
-            </button>
-            <button
-              onClick={() => setShowDeduct(true)}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 text-xs font-medium transition-colors"
-            >
-              <Minus size={14} /> Deduct
-            </button>
-          </div>
         </div>
 
         <div className="rounded-xl border border-zinc-800 p-5 bg-[#111318]">
@@ -172,76 +178,6 @@ export default function AdminUserDetail() {
         </div>
       </div>
 
-      {showRecharge && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowRecharge(false)}>
-          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-xl font-bold text-white mb-4">Recharge Wallet</h2>
-            <input
-              type="number" min="0" step="any" placeholder="Amount"
-              value={actionAmount}
-              onChange={(e) => setActionAmount(e.target.value)}
-              className="w-full mb-3 rounded-lg bg-zinc-800 border border-zinc-600 px-4 py-3 text-sm text-white outline-none focus:border-green-500"
-            />
-            <input
-              type="text" placeholder="Reason (optional)"
-              value={actionReason}
-              onChange={(e) => setActionReason(e.target.value)}
-              className="w-full mb-4 rounded-lg bg-zinc-800 border border-zinc-600 px-4 py-3 text-sm text-white outline-none focus:border-green-500"
-            />
-            <div className="flex gap-2">
-              <button
-                onClick={() => handleAction("recharge")}
-                disabled={actionLoading || !actionAmount || parseFloat(actionAmount) <= 0}
-                className="flex-1 py-3 rounded-xl bg-green-600 hover:bg-green-500 text-white font-bold text-sm disabled:opacity-50 transition-all"
-              >
-                {actionLoading ? "Processing..." : "Recharge"}
-              </button>
-              <button
-                onClick={() => { setShowRecharge(false); setActionAmount(""); setActionReason(""); }}
-                className="px-4 py-3 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white text-sm transition-all"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showDeduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowDeduct(false)}>
-          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-xl font-bold text-white mb-4">Deduct from Wallet</h2>
-            <input
-              type="number" min="0" step="any" placeholder="Amount"
-              value={actionAmount}
-              onChange={(e) => setActionAmount(e.target.value)}
-              className="w-full mb-3 rounded-lg bg-zinc-800 border border-zinc-600 px-4 py-3 text-sm text-white outline-none focus:border-red-500"
-            />
-            <input
-              type="text" placeholder="Reason (optional)"
-              value={actionReason}
-              onChange={(e) => setActionReason(e.target.value)}
-              className="w-full mb-4 rounded-lg bg-zinc-800 border border-zinc-600 px-4 py-3 text-sm text-white outline-none focus:border-red-500"
-            />
-            <div className="flex gap-2">
-              <button
-                onClick={() => handleAction("deduct")}
-                disabled={actionLoading || !actionAmount || parseFloat(actionAmount) <= 0}
-                className="flex-1 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm disabled:opacity-50 transition-all"
-              >
-                {actionLoading ? "Processing..." : "Deduct"}
-              </button>
-              <button
-                onClick={() => { setShowDeduct(false); setActionAmount(""); setActionReason(""); }}
-                className="px-4 py-3 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white text-sm transition-all"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {portfolio && portfolio.length > 0 && (
         <div className="rounded-xl border border-zinc-800 p-5 bg-[#111318]">
           <h2 className="text-lg font-semibold text-white mb-4">Positions</h2>
@@ -249,12 +185,12 @@ export default function AdminUserDetail() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-zinc-500 border-b border-zinc-800">
-                  <th className="text-left py-3 px-2">Symbol</th>
-                  <th className="text-right py-3 px-2">Quantity</th>
-                  <th className="text-right py-3 px-2">Entry Price</th>
-                  <th className="text-right py-3 px-2">Current Price</th>
-                  <th className="text-right py-3 px-2">Value</th>
-                  <th className="text-right py-3 px-2">P&L</th>
+                  <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4">Symbol</th>
+                  <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4">Quantity</th>
+                  <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4">Entry Price</th>
+                  <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4">Current Price</th>
+                  <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4">Value</th>
+                  <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4">P&L</th>
                 </tr>
               </thead>
               <tbody>
@@ -263,23 +199,23 @@ export default function AdminUserDetail() {
                     key={pos.symbol}
                     className="border-b border-zinc-800/50"
                   >
-                    <td className="py-3 px-2 text-white font-medium">
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-white font-medium">
                       {pos.symbol}
                     </td>
-                    <td className="py-3 px-2 text-right">
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-right">
                       {Number(pos.quantity).toFixed(4)}
                     </td>
-                    <td className="py-3 px-2 text-right">
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-right">
                       ₹{Number(pos.entryPrice).toFixed(2)}
                     </td>
-                    <td className="py-3 px-2 text-right">
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-right">
                       ₹{Number(pos.currentPrice).toFixed(2)}
                     </td>
-                    <td className="py-3 px-2 text-right">
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-right">
                       ₹{Number(pos.positionValue).toFixed(2)}
                     </td>
                     <td
-                      className={`py-3 px-2 text-right font-medium ${
+                      className={`py-2.5 sm:py-3 px-3 sm:px-4 text-right font-medium ${
                         Number(pos.unrealizedPnL) >= 0
                           ? "text-green-500"
                           : "text-red-500"
@@ -304,12 +240,12 @@ export default function AdminUserDetail() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-zinc-500 border-b border-zinc-800">
-                  <th className="text-left py-3 px-2">Symbol</th>
-                  <th className="text-center py-3 px-2">Type</th>
-                  <th className="text-right py-3 px-2">Quantity</th>
-                  <th className="text-right py-3 px-2">Price</th>
-                  <th className="text-right py-3 px-2">Total</th>
-                  <th className="text-right py-3 px-2">Date</th>
+                  <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4">Symbol</th>
+                  <th className="text-center py-2.5 sm:py-3 px-3 sm:px-4">Type</th>
+                  <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4">Quantity</th>
+                  <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4 hidden sm:table-cell">Price</th>
+                  <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4">Total</th>
+                  <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4">Date</th>
                 </tr>
               </thead>
               <tbody>
@@ -318,8 +254,8 @@ export default function AdminUserDetail() {
                     key={trade.id}
                     className="border-b border-zinc-800/50"
                   >
-                    <td className="py-3 px-2 text-white">{trade.symbol}</td>
-                    <td className="py-3 px-2 text-center">
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-white">{trade.symbol}</td>
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-center">
                       <span
                         className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                           trade.type === "BUY"
@@ -330,16 +266,16 @@ export default function AdminUserDetail() {
                         {trade.type}
                       </span>
                     </td>
-                    <td className="py-3 px-2 text-right">
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-right">
                       {Number(trade.quantity).toFixed(4)}
                     </td>
-                    <td className="py-3 px-2 text-right">
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-right hidden sm:table-cell">
                       ₹{Number(trade.price).toFixed(2)}
                     </td>
-                    <td className="py-3 px-2 text-right">
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-right">
                       ₹{Number(trade.total_value).toFixed(2)}
                     </td>
-                    <td className="py-3 px-2 text-right text-zinc-400 text-xs">
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-right text-zinc-400 text-xs">
                       {new Date(trade.executed_at).toLocaleString()}
                     </td>
                   </tr>
@@ -357,16 +293,16 @@ export default function AdminUserDetail() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-zinc-500 border-b border-zinc-800">
-                  <th className="text-left py-3 px-2">Type</th>
-                  <th className="text-right py-3 px-2">Amount</th>
-                  <th className="text-center py-3 px-2">Status</th>
-                  <th className="text-right py-3 px-2">Date</th>
+                  <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4">Type</th>
+                  <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4">Amount</th>
+                  <th className="text-center py-2.5 sm:py-3 px-3 sm:px-4">Status</th>
+                  <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4">Date</th>
                 </tr>
               </thead>
               <tbody>
                 {transactions.transactions.map((tx: any) => (
                   <tr key={tx.id} className="border-b border-zinc-800/50">
-                    <td className="py-3 px-2">
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4">
                       <div className="flex items-center gap-2">
                         <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
                           tx.type === "DEPOSIT"
@@ -378,12 +314,12 @@ export default function AdminUserDetail() {
                         <span className="text-white">{tx.type}</span>
                       </div>
                     </td>
-                    <td className={`py-3 px-2 text-right font-medium ${
+                    <td className={`py-2.5 sm:py-3 px-3 sm:px-4 text-right font-medium ${
                       tx.type === "DEPOSIT" ? "text-green-500" : "text-red-500"
                     }`}>
                       {tx.type === "DEPOSIT" ? "+" : "-"}₹{Number(tx.amount).toLocaleString()}
                     </td>
-                    <td className="py-3 px-2 text-center">
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-center">
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                         tx.status === "COMPLETED"
                           ? "text-green-500 bg-green-500/10"
@@ -394,13 +330,41 @@ export default function AdminUserDetail() {
                         {tx.status}
                       </span>
                     </td>
-                    <td className="py-3 px-2 text-right text-zinc-400 text-xs">
+                    <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-right text-zinc-400 text-xs">
                       {new Date(tx.created_at).toLocaleString()}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {showDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => !deleteLoading && setShowDelete(false)}>
+          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-xl font-bold text-white mb-2">Delete User</h2>
+            <p className="text-sm text-zinc-400 mb-6">
+              Are you sure you want to delete <span className="text-white font-medium">{user.username}</span>?
+              This will permanently remove their wallet, portfolio, trades, and all associated data.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={handleDelete}
+                disabled={deleteLoading}
+                className="flex-1 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm disabled:opacity-50 transition-all"
+              >
+                {deleteLoading ? "Deleting..." : "Delete"}
+              </button>
+              <button
+                onClick={() => setShowDelete(false)}
+                disabled={deleteLoading}
+                className="px-4 py-3 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white text-sm transition-all"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

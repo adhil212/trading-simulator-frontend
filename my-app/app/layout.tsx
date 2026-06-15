@@ -4,6 +4,7 @@ import "./globals.css";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { UserProvider } from "./UserProvider"
 import { Toaster } from "react-hot-toast"
+import ErrorBoundary from "./ErrorBoundary"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,7 +33,9 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!}>
-          <UserProvider>{children}</UserProvider>
+          <UserProvider>
+            <ErrorBoundary>{children}</ErrorBoundary>
+          </UserProvider>
         </GoogleOAuthProvider>
         <Toaster
           position="top-right"
