@@ -22,9 +22,12 @@ function AuthForm() {
   const [message, setMessage] = useState("")
   const [submitting, setSubmitting] = useState(false)
 
-  function persistSession(data: { token?: string; user?: { id: number; username: string; email: string } }) {
+  function persistSession(data: { token?: string; refreshToken?: string; user?: { id: number; username: string; email: string } }) {
     if (!data.token) throw new Error("No token returned from server")
     localStorage.setItem("token", data.token)
+    if (data.refreshToken) {
+      localStorage.setItem("refreshToken", data.refreshToken)
+    }
     if (data.user) {
       setUser(data.user)
       localStorage.setItem("user", JSON.stringify(data.user))

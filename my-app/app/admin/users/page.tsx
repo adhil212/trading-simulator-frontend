@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Shield } from "lucide-react";
 import toast from "react-hot-toast";
+import { useUser } from "../../UserProvider";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 export default function AdminUsers() {
+  const { user: currentUser } = useUser();
   const [users, setUsers] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [searchInput, setSearchInput] = useState("");
@@ -15,6 +17,7 @@ export default function AdminUsers() {
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [confirmTarget, setConfirmTarget] = useState<{ id: number; username: string; makeAdmin: boolean } | null>(null);
   const limit = 50;
 
   useEffect(() => {
@@ -51,6 +54,30 @@ export default function AdminUsers() {
       setLoading(false);
     }
   }, [search, offset]);
+
+  const handleToggleAdmin = useCallback(async (targetId: number, makeAdmin: boolean) => {
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`${API}/api/admin/users/${targetId}/admin`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ is_admin: makeAdmin }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast.error(data.error);
+        return;
+      }
+      toast.success(makeAdmin ? "User promoted to admin" : "Admin privileges removed");
+      setConfirmTarget(null);
+      await fetchUsers();
+    } catch {
+      toast.error("Failed to update admin status");
+    }
+  }, [fetchUsers]);
 
   useEffect(() => {
     fetchUsers();
@@ -139,11 +166,22 @@ export default function AdminUsers() {
                     </td>
                     <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-center">
                       {user.is_admin ? (
-                        <span className="text-green-500 text-xs font-medium bg-green-500/10 px-2 py-0.5 rounded-full">
-                          Yes
-                        </span>
+                        <button
+                          onClick={() => setConfirmTarget({ id: user.id, username: user.username, makeAdmin: false })}
+                          disabled={currentUser?.id === user.id}
+                          title={currentUser?.id === user.id ? "Cannot change your own admin status" : "Remove admin privileges"}
+                          className="inline-flex items-center gap-1 text-green-500 text-xs font-medium bg-green-500/10 px-2.5 py-1 rounded-full hover:bg-green-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Shield size={12} />
+                          Admin
+                        </button>
                       ) : (
-                        <span className="text-zinc-600 text-xs">No</span>
+                        <button
+                          onClick={() => setConfirmTarget({ id: user.id, username: user.username, makeAdmin: true })}
+                          className="text-zinc-500 text-xs font-medium bg-zinc-800/50 px-2.5 py-1 rounded-full hover:bg-zinc-700 hover:text-zinc-300 transition-colors"
+                        >
+                          Make admin
+                        </button>
                       )}
                     </td>
                     <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-right text-zinc-400 text-xs hidden sm:table-cell">
@@ -182,6 +220,39 @@ export default function AdminUsers() {
             >
               <ChevronRight size={18} />
             </button>
+          </div>
+        </div>
+      )}
+
+      {confirmTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-[#111318] border border-zinc-800 rounded-xl p-6 w-full max-w-sm mx-4">
+            <h3 className="text-lg font-semibold text-white mb-2">
+              {confirmTarget.makeAdmin ? "Promote to Admin?" : "Remove Admin?"}
+            </h3>
+            <p className="text-zinc-400 text-sm mb-6">
+              {confirmTarget.makeAdmin
+                ? `Are you sure you want to make "${confirmTarget.username}" an admin? They will gain full access to the admin panel.`
+                : `Are you sure you want to remove admin privileges from "${confirmTarget.username}"?`}
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setConfirmTarget(null)}
+                className="px-4 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700 transition-colors text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleToggleAdmin(confirmTarget.id, confirmTarget.makeAdmin)}
+                className={`px-4 py-2 rounded-lg text-white transition-colors text-sm ${
+                  confirmTarget.makeAdmin
+                    ? "bg-green-600 hover:bg-green-500"
+                    : "bg-red-600 hover:bg-red-500"
+                }`}
+              >
+                {confirmTarget.makeAdmin ? "Make Admin" : "Remove"}
+              </button>
+            </div>
           </div>
         </div>
       )}
