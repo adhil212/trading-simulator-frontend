@@ -18,6 +18,9 @@ function AuthForm() {
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [email, setEmail] = useState("")
+  const [otp, setOtp] = useState("")
+  const [otpSent, setOtpSent] = useState(false)
+  const [sendingOtp, setSendingOtp] = useState(false)
   const [error, setError] = useState("")
   const [message, setMessage] = useState("")
   const [submitting, setSubmitting] = useState(false)
@@ -49,7 +52,7 @@ function AuthForm() {
         : `${API_URL}/api/auth/login`
 
       const body = isRegistering
-        ? { username, email, password }
+        ? { username, email, otp, password }
         : { email, password }
 
       const res = await fetch(endpoint, {
@@ -67,7 +70,8 @@ function AuthForm() {
       if (isRegistering) {
         setMessage(data.message || "Registration successful")
         setIsRegistering(false)
-        setPassword("")
+        setOtp("")
+        setOtpSent(false)
         return
       }
 
@@ -77,6 +81,28 @@ function AuthForm() {
       setError(err instanceof Error ? err.message : "Something went wrong")
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  async function handleSendOtp() {
+    setError("")
+    setMessage("")
+    if (!email) { setError("Enter your email first"); return }
+    setSendingOtp(true)
+    try {
+      const res = await fetch(`${API_URL}/api/auth/send-otp`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to send OTP")
+      setOtpSent(true)
+      setMessage("OTP sent to your email")
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Something went wrong")
+    } finally {
+      setSendingOtp(false)
     }
   }
 
@@ -118,7 +144,7 @@ function AuthForm() {
         <div className="mb-8 grid grid-cols-2 rounded-xl bg-neutral-800 p-1">
           <button
             type="button"
-            onClick={() => setIsRegistering(false)}
+            onClick={() => { setIsRegistering(false); setOtpSent(false); setOtp(""); setError(""); setMessage("") }}
             className={`rounded-lg py-2 text-sm font-medium transition ${
               !isRegistering
                 ? "bg-neutral-700 text-white shadow-sm"
@@ -129,7 +155,7 @@ function AuthForm() {
           </button>
           <button
             type="button"
-            onClick={() => setIsRegistering(true)}
+            onClick={() => { setIsRegistering(true); setOtpSent(false); setOtp(""); setError(""); setMessage("") }}
             className={`rounded-lg py-2 text-sm font-medium transition ${
               isRegistering
                 ? "bg-neutral-700 text-white shadow-sm"
@@ -141,67 +167,142 @@ function AuthForm() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          {isRegistering && (
-            <div className="space-y-2">
-              <label htmlFor="username" className="ml-1 block text-xs font-medium text-neutral-400">
-                Username
-              </label>
-              <input
-                id="username"
-                type="text"
-                placeholder="Username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full rounded-xl border border-transparent bg-neutral-800 px-4 py-3 text-sm text-white outline-none transition placeholder:text-neutral-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
-              />
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <label htmlFor="email" className="ml-1 block text-xs font-medium text-neutral-400">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              placeholder="student@university.edu"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-xl border border-blue-500 bg-neutral-950 px-4 py-3 text-sm text-white outline-none shadow-[0_0_0_1px_rgba(59,130,246,0.3)] transition placeholder:text-neutral-500 focus:ring-2 focus:ring-blue-500/30"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label htmlFor="password" className="ml-1 block text-xs font-medium text-neutral-400">
-              Password
-            </label>
-            <div className="relative">
-              <input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl border border-transparent bg-neutral-800 px-4 py-3 pr-12 text-sm text-white outline-none transition placeholder:text-neutral-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
-              />
+          {isRegistering && !otpSent && (
+            <>
+              <div className="space-y-2">
+                <label htmlFor="reg-email" className="ml-1 block text-xs font-medium text-neutral-400">
+                  Email
+                </label>
+                <input
+                  id="reg-email"
+                  type="email"
+                  placeholder="student@university.edu"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full rounded-xl border border-blue-500 bg-neutral-950 px-4 py-3 text-sm text-white outline-none shadow-[0_0_0_1px_rgba(59,130,246,0.3)] transition placeholder:text-neutral-500 focus:ring-2 focus:ring-blue-500/30"
+                />
+              </div>
               <button
                 type="button"
-                aria-label={showPassword ? "Hide password" : "Show password"}
-                onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-3 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-neutral-400 transition hover:bg-white/5 hover:text-white"
+                onClick={handleSendOtp}
+                disabled={sendingOtp || !email}
+                className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition hover:bg-blue-500 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                {sendingOtp ? "Sending..." : "Send OTP"}
               </button>
-            </div>
-          </div>
+            </>
+          )}
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition hover:bg-blue-500 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {submitting ? "Please wait..." : isRegistering ? "Create account" : "Continue"}
-          </button>
+          {isRegistering && otpSent && (
+            <>
+              <div className="space-y-2">
+                <label htmlFor="otp" className="ml-1 block text-xs font-medium text-neutral-400">
+                  OTP
+                </label>
+                <input
+                  id="otp"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="6-digit code"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  className="w-full rounded-xl border border-blue-500 bg-neutral-950 px-4 py-3 text-sm text-white outline-none shadow-[0_0_0_1px_rgba(59,130,246,0.3)] transition placeholder:text-neutral-500 focus:ring-2 focus:ring-blue-500/30"
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="username" className="ml-1 block text-xs font-medium text-neutral-400">
+                  Username
+                </label>
+                <input
+                  id="username"
+                  type="text"
+                  placeholder="Username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full rounded-xl border border-transparent bg-neutral-800 px-4 py-3 text-sm text-white outline-none transition placeholder:text-neutral-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="password" className="ml-1 block text-xs font-medium text-neutral-400">
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full rounded-xl border border-transparent bg-neutral-800 px-4 py-3 pr-12 text-sm text-white outline-none transition placeholder:text-neutral-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+                  />
+                  <button
+                    type="button"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-neutral-400 transition hover:bg-white/5 hover:text-white"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition hover:bg-blue-500 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {submitting ? "Please wait..." : "Create account"}
+              </button>
+            </>
+          )}
+
+          {!isRegistering && (
+            <>
+              <div className="space-y-2">
+                <label htmlFor="login-email" className="ml-1 block text-xs font-medium text-neutral-400">
+                  Email
+                </label>
+                <input
+                  id="login-email"
+                  type="email"
+                  placeholder="student@university.edu"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full rounded-xl border border-blue-500 bg-neutral-950 px-4 py-3 text-sm text-white outline-none shadow-[0_0_0_1px_rgba(59,130,246,0.3)] transition placeholder:text-neutral-500 focus:ring-2 focus:ring-blue-500/30"
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="login-password" className="ml-1 block text-xs font-medium text-neutral-400">
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    id="login-password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full rounded-xl border border-transparent bg-neutral-800 px-4 py-3 pr-12 text-sm text-white outline-none transition placeholder:text-neutral-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+                  />
+                  <button
+                    type="button"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-neutral-400 transition hover:bg-white/5 hover:text-white"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition hover:bg-blue-500 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {submitting ? "Please wait..." : "Continue"}
+              </button>
+            </>
+          )}
         </form>
 
         <div className="relative my-6">

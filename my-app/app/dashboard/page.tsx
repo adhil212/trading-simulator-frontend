@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useEffect, useState, memo } from "react"
 import { Loader2 } from "lucide-react"
 import ChatPanel from "./ChatPanel"
 import toast from "react-hot-toast"
@@ -23,6 +23,140 @@ type PriceData = {
 type PricesState = {
   [key: string]: PriceData
 }
+
+const AssetCard = memo(function AssetCard({
+  asset,
+  last,
+  change,
+  isUp,
+  qty,
+  trade,
+  setTrade,
+  balance,
+  trading,
+  executeTrade
+}: {
+  asset: AssetInfo
+  last: number
+  change: number
+  isUp: boolean
+  qty: number | undefined
+  trade: { symbol: string; type: "BUY" | "SELL"; quantity: string } | null
+  setTrade: (t: { symbol: string; type: "BUY" | "SELL"; quantity: string } | null) => void
+  balance: number | null
+  trading: boolean
+  executeTrade: () => void
+}) {
+  return (
+    <div className="bg-[#1c1f26] border border-zinc-800 rounded-2xl p-4 md:p-6 shadow-xl">
+      <div className="flex items-center gap-3 mb-3 md:mb-4">
+        <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-zinc-800 flex items-center justify-center border border-zinc-700 font-bold text-white text-xs">
+          {asset.symbol[0]}
+        </div>
+
+        <div>
+          <h3 className="text-white font-bold text-base md:text-lg">
+            {asset.symbol}
+          </h3>
+
+          <span className="text-[10px] text-zinc-500 uppercase">
+            {asset.name} · {asset.type}
+          </span>
+          {qty !== undefined && (
+            <div className="text-[10px] text-zinc-400 mt-0.5">
+              Qty: {qty}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <Link href={`/dashboard/${asset.symbol}`}>
+        <div className="text-2xl md:text-3xl font-bold text-white">
+          ₹
+          {last.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 4,
+          })}
+        </div>
+
+        <div
+          className={`flex items-center text-sm font-bold mt-1 ${
+            isUp ? "text-green-400" : "text-red-400"
+          }`}
+        >
+          {isUp ? "▲" : "▼"} {change.toFixed(2)}%
+        </div>
+      </Link>
+
+      <div className="flex gap-3 mt-3 md:mt-4">
+        <button
+          onClick={() => setTrade({ symbol: asset.symbol, type: "BUY", quantity: "0" })}
+          className="flex-1 py-2 rounded-xl border border-green-500/50 text-green-400 font-bold hover:bg-green-500/20 transition-all text-sm text-center"
+        >
+          Buy
+        </button>
+
+        <button
+          onClick={() => setTrade({ symbol: asset.symbol, type: "SELL", quantity: "0" })}
+          className="flex-1 py-2 rounded-xl border border-red-500/50 text-red-400 font-bold hover:bg-red-500/20 transition-all text-sm text-center"
+        >
+          Sell
+        </button>
+      </div>
+
+      {trade && trade.symbol === asset.symbol && (
+        <div className="mt-3 md:mt-4 p-3 rounded-xl bg-zinc-800/50 border border-zinc-700">
+          {(() => {
+            const price = last || 1
+            const maxQty = trade.type === "BUY"
+              ? Math.floor((balance ?? 0) / price)
+              : Math.floor(qty ?? 0)
+            const q = Math.min(parseFloat(trade.quantity || "0"), maxQty)
+
+            return (
+              <>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-zinc-400">Qty: {q}</span>
+                  <span className="text-xs text-zinc-400">
+                    ~₹{(q * price).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max={maxQty || 1}
+                  step="1"
+                  value={q}
+                  onChange={(e) => setTrade({ ...trade, quantity: e.target.value })}
+                  className="w-full h-2 rounded-full appearance-none cursor-pointer bg-zinc-700 accent-zinc-400 mb-2"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={executeTrade}
+                    disabled={trading || q === 0}
+                    className={`flex-1 py-2 rounded-lg text-sm font-bold text-white ${
+                      trade.type === "BUY"
+                        ? "bg-green-600 hover:bg-green-500"
+                        : "bg-red-600 hover:bg-red-500"
+                    } disabled:opacity-50 transition-all`}
+                  >
+                    {trading ? "Processing..." : `Confirm ${trade.type}`}
+                  </button>
+                  <button
+                    onClick={() => setTrade(null)}
+                    className="px-3 py-2 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-white text-sm transition-all"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            )
+          })()}
+        </div>
+      )}
+    </div>
+  )
+})
 
 export default function DashboardPage() {
   const [prices, setPrices] = useState<PricesState>({})
@@ -212,6 +346,28 @@ export default function DashboardPage() {
     return () => {
       socket.off("priceUpdate")
       socket.off("connect_error")
+    }
+  }, [])
+
+  // Loading timeout and HTTP fallback
+  useEffect(() => {
+    let pollId: ReturnType<typeof setInterval> | null = null
+    const timeout = setTimeout(() => {
+      setLoading(false)
+      fetch(`${API}/api/market/prices`)
+        .then(r => r.json())
+        .then(d => { if (d.success) setPrices(d.data) })
+        .catch(() => {})
+      pollId = setInterval(() => {
+        fetch(`${API}/api/market/prices`)
+          .then(r => r.json())
+          .then(d => { if (d.success) setPrices(d.data) })
+          .catch(() => {})
+      }, 15000)
+    }, 8000)
+    return () => {
+      clearTimeout(timeout)
+      if (pollId !== null) clearInterval(pollId)
     }
   }, [])
 
@@ -526,13 +682,13 @@ export default function DashboardPage() {
           </div>
           <div className="bg-[#1c1f26] border border-zinc-800 rounded-2xl p-4 md:p-5">
             <p className="text-zinc-500 text-[10px] md:text-xs uppercase tracking-wider mb-1">Realized P&L</p>
-            <p className={`text-xl md:text-2xl font-bold ${parseFloat(performance.totalRealizedPnL) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {parseFloat(performance.totalRealizedPnL) >= 0 ? '+' : ''}₹{parseFloat(performance.totalRealizedPnL).toLocaleString()}
+            <p className={`text-xl md:text-2xl font-bold ${(parseFloat(performance.totalRealizedPnL) || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              {(parseFloat(performance.totalRealizedPnL) || 0) >= 0 ? '+' : ''}₹{(parseFloat(performance.totalRealizedPnL) || 0).toLocaleString()}
             </p>
           </div>
           <div className="bg-[#1c1f26] border border-zinc-800 rounded-2xl p-4 md:p-5">
             <p className="text-zinc-500 text-[10px] md:text-xs uppercase tracking-wider mb-1">Best Trade</p>
-            <p className="text-xl md:text-2xl font-bold text-green-400">+₹{parseFloat(performance.bestTrade).toLocaleString()}</p>
+            <p className="text-xl md:text-2xl font-bold text-green-400">+₹{(parseFloat(performance.bestTrade) || 0).toLocaleString()}</p>
           </div>
         </div>
       )}
@@ -540,123 +696,20 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">
         {assets.map((asset) => {
           const p = prices[asset.symbol]
-
-          const last = p?.last ?? 0
-          const change = p?.changePercent ?? 0
-
-          const isUp = change >= 0
-
           return (
-            <div
+            <AssetCard
               key={asset.symbol}
-              className="bg-[#1c1f26] border border-zinc-800 rounded-2xl p-4 md:p-6 shadow-xl"
-            >
-              <div className="flex items-center gap-3 mb-3 md:mb-4">
-                <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-zinc-800 flex items-center justify-center border border-zinc-700 font-bold text-white text-xs">
-                  {asset.symbol[0]}
-                </div>
-
-                <div>
-                  <h3 className="text-white font-bold text-base md:text-lg">
-                    {asset.symbol}
-                  </h3>
-
-                  <span className="text-[10px] text-zinc-500 uppercase">
-                    {asset.name} · {asset.type}
-                  </span>
-                  {positions[asset.symbol] !== undefined && (
-                    <div className="text-[10px] text-zinc-400 mt-0.5">
-                      Qty: {positions[asset.symbol]}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <Link href={`/dashboard/${asset.symbol}`}>
-                <div className="text-2xl md:text-3xl font-bold text-white">
-                  ₹
-                  {last.toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 4,
-                  })}
-                </div>
-
-                <div
-                  className={`flex items-center text-sm font-bold mt-1 ${
-                    isUp ? "text-green-400" : "text-red-400"
-                  }`}
-                >
-                  {isUp ? "▲" : "▼"} {change.toFixed(2)}%
-                </div>
-              </Link>
-
-              <div className="flex gap-3 mt-3 md:mt-4">
-                <button
-                  onClick={() => setTrade({ symbol: asset.symbol, type: "BUY", quantity: "0" })}
-                  className="flex-1 py-2 rounded-xl border border-green-500/50 text-green-400 font-bold hover:bg-green-500/20 transition-all text-sm text-center"
-                >
-                  Buy
-                </button>
-
-                <button
-                  onClick={() => setTrade({ symbol: asset.symbol, type: "SELL", quantity: "0" })}
-                  className="flex-1 py-2 rounded-xl border border-red-500/50 text-red-400 font-bold hover:bg-red-500/20 transition-all text-sm text-center"
-                >
-                  Sell
-                </button>
-              </div>
-
-              {trade && trade.symbol === asset.symbol && (
-                <div className="mt-3 md:mt-4 p-3 rounded-xl bg-zinc-800/50 border border-zinc-700">
-                  {(() => {
-                    const price = last || 1
-                    const maxQty = trade.type === "BUY"
-                      ? Math.floor((balance ?? 0) / price)
-                      : Math.floor(positions[asset.symbol] ?? 0)
-                    const qty = Math.min(parseFloat(trade.quantity || "0"), maxQty)
-
-                    return (
-                      <>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs text-zinc-400">Qty: {qty}</span>
-                          <span className="text-xs text-zinc-400">
-                            ~₹{(qty * price).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                          </span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max={maxQty || 1}
-                          step="1"
-                          value={qty}
-                          onChange={(e) => setTrade({ ...trade, quantity: e.target.value })}
-                          className="w-full h-2 rounded-full appearance-none cursor-pointer bg-zinc-700 accent-zinc-400 mb-2"
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            onClick={executeTrade}
-                            disabled={trading || qty === 0}
-                            className={`flex-1 py-2 rounded-lg text-sm font-bold text-white ${
-                              trade.type === "BUY"
-                                ? "bg-green-600 hover:bg-green-500"
-                                : "bg-red-600 hover:bg-red-500"
-                            } disabled:opacity-50 transition-all`}
-                          >
-                            {trading ? "Processing..." : `Confirm ${trade.type}`}
-                          </button>
-                          <button
-                            onClick={() => setTrade(null)}
-                            className="px-3 py-2 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-white text-sm transition-all"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </>
-                    )
-                  })()}
-                </div>
-              )}
-            </div>
+              asset={asset}
+              last={p?.last ?? 0}
+              change={p?.changePercent ?? 0}
+              isUp={(p?.changePercent ?? 0) >= 0}
+              qty={positions[asset.symbol]}
+              trade={trade}
+              setTrade={setTrade}
+              balance={balance}
+              trading={trading}
+              executeTrade={executeTrade}
+            />
           )
         })}
       </div>
