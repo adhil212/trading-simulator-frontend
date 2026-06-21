@@ -492,7 +492,34 @@ export default function DashboardPage() {
     if (!trade) return
     const token = localStorage.getItem("token")
     if (!token) return
-    if (!window.confirm(`Confirm ${trade.type} ${parseFloat(trade.quantity)} units of ${trade.symbol}?`)) return
+    const confirmed = await new Promise<boolean>((resolve) => {
+      toast.custom(
+        (t) => (
+          <div className="bg-[#1c1f26] border border-zinc-700 rounded-xl p-4 shadow-2xl min-w-[260px]">
+            <p className="text-white text-sm font-semibold mb-3 leading-relaxed">
+              Confirm <span className={trade.type === "BUY" ? "text-emerald-400" : "text-red-400"}>{trade.type}</span>{" "}
+              {parseFloat(trade.quantity)} units of <span className="text-zinc-300">{trade.symbol}</span>?
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { toast.dismiss(t.id); resolve(true) }}
+                className="flex-1 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all"
+              >
+                ✓ Confirm
+              </button>
+              <button
+                onClick={() => { toast.dismiss(t.id); resolve(false) }}
+                className="flex-1 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs transition-all"
+              >
+                ✕ Cancel
+              </button>
+            </div>
+          </div>
+        ),
+        { duration: Infinity }
+      )
+    })
+    if (!confirmed) return
     setTrading(true)
     try {
       const res = await fetch(`${API}/api/trading/${trade.type === "BUY" ? "buy" : "sell"}`, {

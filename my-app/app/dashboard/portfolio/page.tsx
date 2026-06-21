@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import { TrendingUp, TrendingDown, Loader2 } from "lucide-react"
-import toast from "react-hot-toast"
 import { getSocket } from "../../../lib/socket"
 
 type Position = {
@@ -44,11 +43,8 @@ export default function PortfolioPage() {
 
     const onConnect = () => {
       socket.emit("getPortfolioData", {}, (res: any) => {
-        if (res.error) {
-          setError(res.error)
-        } else {
-          setData(res)
-        }
+        if (res.error) setError(res.error)
+        else setData(res)
         setLoading(false)
       })
     }
@@ -87,11 +83,8 @@ export default function PortfolioPage() {
 
     const onReconnect = () => {
       socket.emit("getPortfolioData", {}, (res: any) => {
-        if (res.error) {
-          setError(res.error)
-        } else {
-          setData(res)
-        }
+        if (res.error) setError(res.error)
+        else setData(res)
         setLoading(false)
       })
     }
@@ -99,10 +92,7 @@ export default function PortfolioPage() {
     socket.on("connect", onConnect)
     socket.on("priceUpdate", onPriceUpdate)
     socket.on("reconnect", onReconnect)
-
-    if (socket.connected) {
-      onConnect()
-    }
+    if (socket.connected) onConnect()
 
     return () => {
       socket.off("connect", onConnect)
@@ -113,18 +103,18 @@ export default function PortfolioPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#09090b] text-zinc-400 p-6 md:p-12 flex items-center justify-center">
-        <Loader2 className="animate-spin text-green-500" size={32} />
+      <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
+        <Loader2 className="animate-spin text-emerald-500" size={24} />
       </div>
     )
   }
-    
+
   if (error) {
     return (
-      <div className="min-h-screen bg-[#09090b] text-zinc-400 p-6 md:p-12 flex items-center justify-center">
+      <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-400 text-lg mb-2">Failed to load portfolio</p>
-          <p className="text-zinc-500 text-sm">{error}</p>
+          <p className="text-red-400 font-semibold mb-1">Failed to load portfolio</p>
+          <p className="text-zinc-600 text-sm">{error}</p>
         </div>
       </div>
     )
@@ -134,134 +124,192 @@ export default function PortfolioPage() {
   const summary = data?.portfolio?.summary
   const totalValue = summary ? parseFloat(summary.totalValue) : 0
   const totalPnl = summary ? parseFloat(summary.totalUnrealizedPnL) : 0
+  const totalPct = summary ? parseFloat(summary.totalUnrealizedPercent) : 0
   const pnlUp = totalPnl >= 0
 
-  return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-400 p-6 md:p-12">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-bold text-white mb-10">My Portfolio</h1>
+  // Largest position by value (for bar widths)
+  const maxValue = Math.max(...positions.map((p) => p.positionValue), 1)
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-8 md:mb-12">
-          <div className="bg-[#111318] border border-zinc-800 rounded-2xl p-6 md:p-8">
-            <p className="text-zinc-500 text-xs md:text-sm mb-1 md:mb-2">Total Value</p>
-            <span className="text-3xl md:text-5xl font-bold text-green-400">₹{totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+  return (
+    <div className="min-h-screen bg-[#09090b] text-zinc-400">
+      <div className="px-4 sm:px-6 lg:px-10 py-8 md:py-12">
+
+        {/* ── Header ── */}
+        <div className="mb-8">
+          <p className="text-zinc-600 text-xs uppercase tracking-widest font-semibold mb-1">Open positions</p>
+          <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">Portfolio</h1>
+        </div>
+
+        {/* ── Summary cards ── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+
+          {/* Total value */}
+          <div className="bg-[#111114] border border-zinc-800 rounded-2xl p-5 sm:p-6">
+            <p className="text-zinc-600 text-[10px] uppercase tracking-widest font-semibold mb-3">Holdings value</p>
+            <p className="text-3xl sm:text-4xl font-black text-white font-mono tracking-tight">
+              ₹{totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+            <p className="text-zinc-700 text-xs mt-2 font-mono">
+              {summary?.totalPositions ?? 0} position{(summary?.totalPositions ?? 0) !== 1 ? "s" : ""}
+            </p>
           </div>
 
-          <div className="bg-[#111318] border border-zinc-800 rounded-2xl p-6 md:p-8">
-            <p className="text-zinc-500 text-xs md:text-sm mb-1 md:mb-2">Daily P&L</p>
-            <div className="flex items-center gap-2 md:gap-3">
-              <span className={`text-3xl md:text-5xl font-bold ${pnlUp ? "text-green-400" : "text-red-400"}`}>
-                {pnlUp ? "+" : ""}₹{totalPnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          {/* Unrealized P&L */}
+          <div className={`bg-[#111114] border rounded-2xl p-5 sm:p-6 ${pnlUp ? "border-emerald-500/20" : "border-red-500/20"}`}>
+            <p className="text-zinc-600 text-[10px] uppercase tracking-widest font-semibold mb-3">Unrealized P&L</p>
+            <div className="flex items-end gap-3">
+              <p className={`text-3xl sm:text-4xl font-black font-mono tracking-tight ${pnlUp ? "text-emerald-400" : "text-red-400"}`}>
+                {pnlUp ? "+" : ""}₹{totalPnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+              <span className={`text-sm font-bold mb-1 ${pnlUp ? "text-emerald-500" : "text-red-500"}`}>
+                {pnlUp ? "▲" : "▼"} {Math.abs(totalPct).toFixed(2)}%
               </span>
-              {pnlUp ? <TrendingUp className="text-green-400" size={24} /> : <TrendingDown className="text-red-400" size={24} />}
+            </div>
+            <div className="mt-3 h-1 rounded-full bg-zinc-800 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-700 ${pnlUp ? "bg-emerald-500" : "bg-red-500"}`}
+                style={{ width: `${Math.min(Math.abs(totalPct) * 5, 100)}%` }}
+              />
             </div>
           </div>
         </div>
 
-        {/* Growth chart - temporarily disabled
-        {growth?.growthData && growth.growthData.length > 1 && (
-          <div className="bg-[#111318] border border-zinc-800 rounded-2xl p-6 mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-white font-bold text-lg">Portfolio Growth</h2>
-              <span className="text-zinc-500 text-sm">{growth.period}</span>
-            </div>
-            <svg viewBox="0 0 600 200" className="w-full h-48" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="growthGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#22c55e" stopOpacity="0.25" />
-                  <stop offset="100%" stopColor="#22c55e" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-              {(() => {
-                const vals = growth.growthData.map((d: any) => d.balance)
-                const mn = Math.min(...vals); const mx = Math.max(...vals)
-                const rng = mx - mn || 1; const pad = 10; const w = 600; const h = 200
-                const pw = w - pad * 2; const ph = h - pad * 2
-                const pts = growth.growthData.map((d: any, i: number) => ({
-                  x: pad + (i / (growth.growthData.length - 1)) * pw,
-                  y: pad + ph - ((d.balance - mn) / rng) * ph,
-                }))
-                const line = pts.map((p: any, i: number) => `${i === 0 ? 'M' : 'L'}${p.x} ${p.y}`).join(' ')
-                return (
-                  <>
-                    <path d={`${line} L${pts[pts.length - 1].x} ${h} L${pts[0].x} ${h} Z`} fill="url(#growthGrad)" />
-                    <path d={line} fill="none" stroke="#22c55e" strokeWidth="2" strokeLinejoin="round" />
-                    {[pts[0], pts[pts.length - 1]].map((p, i) => (
-                      <circle key={i} cx={p.x} cy={p.y} r="4" fill="#22c55e" stroke="#09090b" strokeWidth="2" />
-                    ))}
-                  </>
-                )
-              })()}
-            </svg>
-          </div>
-        )}
-        */}
-
+        {/* ── Positions ── */}
         {positions.length === 0 ? (
-          <div className="bg-[#111318] border border-zinc-800 rounded-2xl p-12 text-center">
-            <p className="text-zinc-500 text-lg">No open positions</p>
-            <p className="text-zinc-600 text-sm mt-1">Buy an asset to see it here</p>
+          <div className="bg-[#111114] border border-zinc-800 rounded-2xl flex flex-col items-center justify-center py-24 px-8 text-center">
+            {/* Mini candlestick illustration */}
+            <div className="flex items-end gap-1.5 mb-6 opacity-20">
+              {[32, 48, 28, 56, 40, 64, 44].map((h, i) => (
+                <div key={i} className="flex flex-col items-center gap-0.5">
+                  <div className="w-0.5 bg-zinc-400 rounded-full" style={{ height: h * 0.3 }} />
+                  <div className="w-3 rounded-sm bg-zinc-400" style={{ height: h * 0.5 }} />
+                  <div className="w-0.5 bg-zinc-400 rounded-full" style={{ height: h * 0.2 }} />
+                </div>
+              ))}
+            </div>
+            <p className="text-zinc-400 font-semibold text-base mb-1">No open positions</p>
+            <p className="text-zinc-700 text-sm max-w-xs">Head to the dashboard, pick an asset, and place your first trade.</p>
           </div>
         ) : (
           <>
             {/* Desktop table */}
-            <div className="hidden md:block bg-[#111318] border border-zinc-800 rounded-2xl overflow-hidden">
+            <div className="hidden md:block bg-[#111114] border border-zinc-800 rounded-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-zinc-800/60 flex items-center justify-between">
+                <p className="text-zinc-600 text-[10px] uppercase tracking-widest font-semibold">Positions</p>
+                <span className="text-zinc-700 text-xs font-mono">{positions.length} assets</span>
+              </div>
               <table className="w-full text-left">
                 <thead>
-                  <tr className="text-zinc-500 text-xs uppercase tracking-wider border-b border-zinc-800">
-                    <th className="px-6 py-5">Asset</th>
-                    <th className="px-6 py-5">Qty</th>
-                    <th className="px-6 py-5">Avg Price</th>
-                    <th className="px-6 py-5">Current</th>
-                    <th className="px-6 py-5 text-right">P&L</th>
+                  <tr className="text-zinc-700 text-[10px] uppercase tracking-widest border-b border-zinc-800/60">
+                    <th className="px-6 py-3 font-semibold">Asset</th>
+                    <th className="px-6 py-3 font-semibold">Qty</th>
+                    <th className="px-6 py-3 font-semibold">Avg price</th>
+                    <th className="px-6 py-3 font-semibold">Current</th>
+                    <th className="px-6 py-3 font-semibold">Value</th>
+                    <th className="px-6 py-3 font-semibold text-right">P&L</th>
                   </tr>
                 </thead>
-                <tbody className="text-sm">
-                  {positions.map((a) => (
-                    <tr key={a.symbol} className="border-b border-zinc-800/50 hover:bg-zinc-800/20">
-                      <td className="px-6 py-5 text-white font-medium">{a.symbol.replace(/_/g, "/")}</td>
-                      <td className="px-6 py-5 text-zinc-300">{a.quantity.toLocaleString()}</td>
-                      <td className="px-6 py-5 text-zinc-300">₹{a.entryPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                      <td className="px-6 py-5 text-zinc-300">₹{a.currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                      <td className="px-6 py-5 text-right">
-                        <span className={`inline-flex items-center gap-1 font-bold ${a.unrealizedPnL >= 0 ? "text-green-400" : "text-red-400"}`}>
-                          {a.unrealizedPnL >= 0 ? "+" : ""}₹{a.unrealizedPnL.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                          {a.unrealizedPnL >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                <tbody>
+                  {positions.map((a, i) => {
+                    const up = a.unrealizedPnL >= 0
+                    const barW = Math.round((a.positionValue / maxValue) * 100)
+                    return (
+                      <tr
+                        key={a.symbol}
+                        className="border-b border-zinc-800/40 last:border-0 hover:bg-zinc-800/20 transition-colors group"
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-7 h-7 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white font-black text-xs shrink-0">
+                              {a.symbol[0]}
+                            </div>
+                            <div>
+                              <p className="text-white font-bold text-sm">{a.symbol.replace(/_/g, "/")}</p>
+                              {/* allocation bar */}
+                              <div className="mt-1 h-0.5 w-16 bg-zinc-800 rounded-full overflow-hidden">
+                                <div className="h-full bg-zinc-500 rounded-full" style={{ width: `${barW}%` }} />
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-zinc-300 font-mono text-sm">{a.quantity.toLocaleString()}</td>
+                        <td className="px-6 py-4 text-zinc-500 font-mono text-sm">
+                          ₹{a.entryPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                        </td>
+                        <td className="px-6 py-4 text-zinc-300 font-mono text-sm">
+                          ₹{a.currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                        </td>
+                        <td className="px-6 py-4 text-zinc-400 font-mono text-sm">
+                          ₹{a.positionValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className={`inline-flex flex-col items-end ${up ? "text-emerald-400" : "text-red-400"}`}>
+                            <span className="font-black font-mono text-sm">
+                              {up ? "+" : ""}₹{a.unrealizedPnL.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                            <span className="text-[10px] font-bold opacity-70">
+                              {up ? "▲" : "▼"} {Math.abs(a.unrealizedPnLPercent).toFixed(2)}%
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
 
             {/* Mobile cards */}
             <div className="md:hidden space-y-3">
-              {positions.map((a) => (
-                <div key={a.symbol} className="bg-[#111318] border border-zinc-800 rounded-2xl p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-white font-bold">{a.symbol.replace(/_/g, "/")}</span>
-                    <span className={`inline-flex items-center gap-1 font-bold ${a.unrealizedPnL >= 0 ? "text-green-400" : "text-red-400"}`}>
-                      {a.unrealizedPnL >= 0 ? "+" : ""}₹{a.unrealizedPnL.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      {a.unrealizedPnL >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-                    </span>
+              {positions.map((a) => {
+                const up = a.unrealizedPnL >= 0
+                const barW = Math.round((a.positionValue / maxValue) * 100)
+                return (
+                  <div key={a.symbol} className="bg-[#111114] border border-zinc-800 rounded-2xl p-4">
+                    {/* Top row */}
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white font-black text-sm">
+                          {a.symbol[0]}
+                        </div>
+                        <div>
+                          <p className="text-white font-bold text-sm leading-none">{a.symbol.replace(/_/g, "/")}</p>
+                          <p className="text-zinc-600 text-[10px] mt-0.5">{a.quantity.toLocaleString()} units</p>
+                        </div>
+                      </div>
+                      <div className={`text-right ${up ? "text-emerald-400" : "text-red-400"}`}>
+                        <p className="font-black font-mono text-sm">
+                          {up ? "+" : ""}₹{a.unrealizedPnL.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                        <p className="text-[10px] font-bold opacity-70">
+                          {up ? "▲" : "▼"} {Math.abs(a.unrealizedPnLPercent).toFixed(2)}%
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Allocation bar */}
+                    <div className="h-0.5 bg-zinc-800 rounded-full mb-3 overflow-hidden">
+                      <div className="h-full bg-zinc-600 rounded-full" style={{ width: `${barW}%` }} />
+                    </div>
+
+                    {/* Price grid */}
+                    <div className="grid grid-cols-3 gap-3 text-xs">
+                      <div>
+                        <p className="text-zinc-600 mb-0.5">Avg price</p>
+                        <p className="text-zinc-300 font-mono font-medium">₹{a.entryPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                      </div>
+                      <div>
+                        <p className="text-zinc-600 mb-0.5">Current</p>
+                        <p className="text-zinc-300 font-mono font-medium">₹{a.currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                      </div>
+                      <div>
+                        <p className="text-zinc-600 mb-0.5">Value</p>
+                        <p className="text-zinc-300 font-mono font-medium">₹{a.positionValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-2 text-xs">
-                    <div>
-                      <p className="text-zinc-500">Qty</p>
-                      <p className="text-zinc-300 font-medium">{a.quantity.toLocaleString()}</p>
-                    </div>
-                    <div>
-                      <p className="text-zinc-500">Avg</p>
-                      <p className="text-zinc-300 font-medium">₹{a.entryPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-                    </div>
-                    <div>
-                      <p className="text-zinc-500">Current</p>
-                      <p className="text-zinc-300 font-medium">₹{a.currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </>
         )}

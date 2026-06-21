@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Wallet, ArrowDownLeft, ArrowUpRight, Download, Loader2 } from "lucide-react"
+import { ArrowDownLeft, ArrowUpRight, Download, Loader2 } from "lucide-react"
 
 type Transaction = {
   id: number
@@ -29,6 +29,19 @@ const typeFilters = [
   { label: "Withdrawals", val: "WITHDRAWAL" },
 ]
 
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    COMPLETED: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    PENDING:   "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+    FAILED:    "bg-red-500/10 text-red-400 border-red-500/20",
+  }
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${map[status] ?? "bg-zinc-800 text-zinc-400 border-zinc-700"}`}>
+      {status}
+    </span>
+  )
+}
+
 export default function WalletPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
@@ -37,11 +50,7 @@ export default function WalletPage() {
 
   useEffect(() => {
     const token = localStorage.getItem("token")
-    if (!token) {
-      setError("Not authenticated")
-      setLoading(false)
-      return
-    }
+    if (!token) { setError("Not authenticated"); setLoading(false); return }
 
     fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/wallet/transactions?limit=100`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -58,6 +67,14 @@ export default function WalletPage() {
   const filtered = typeFilter === "all"
     ? transactions
     : transactions.filter((t) => t.type === typeFilter)
+
+  // Summary stats
+  const totalDeposited = transactions
+    .filter((t) => t.type === "DEPOSIT" && t.status === "COMPLETED")
+    .reduce((s, t) => s + parseFloat(t.amount), 0)
+  const totalWithdrawn = transactions
+    .filter((t) => t.type === "WITHDRAWAL" && t.status === "COMPLETED")
+    .reduce((s, t) => s + parseFloat(t.amount), 0)
 
   const downloadCSV = () => {
     let csv = "Type,Amount,Status,Order ID,Date\n"
@@ -77,189 +94,197 @@ export default function WalletPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#09090b] text-zinc-400 p-6 md:p-12 flex items-center justify-center">
-        <Loader2 className="animate-spin text-green-500" size={32} />
+      <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
+        <Loader2 className="animate-spin text-emerald-500" size={24} />
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#09090b] text-zinc-400 p-6 md:p-12 flex items-center justify-center">
+      <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-400 text-lg mb-2">Failed to load transactions</p>
-          <p className="text-zinc-500 text-sm">{error}</p>
+          <p className="text-red-400 font-semibold mb-1">Failed to load transactions</p>
+          <p className="text-zinc-600 text-sm">{error}</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-400 p-6 md:p-12">
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-10">
-          <div className="flex items-center gap-2 mb-2">
-            <Wallet className="text-green-500" size={20} />
-            <span className="text-zinc-500 uppercase tracking-widest text-xs font-bold">Wallet</span>
-          </div>
-          <h1 className="text-4xl font-bold text-white tracking-tight">Transaction History</h1>
+    <div className="min-h-screen bg-[#09090b] text-zinc-400">
+      <div className="px-4 sm:px-6 lg:px-10 py-8 md:py-12">
+
+        {/* ── Header ── */}
+        <div className="mb-8">
+          <p className="text-zinc-600 text-xs uppercase tracking-widest font-semibold mb-1">Transaction history</p>
+          <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">Wallet</h1>
         </div>
 
-        <div className="flex flex-wrap gap-3 mb-6 items-center">
+        {/* ── Summary cards ── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+          <div className="bg-[#111114] border border-zinc-800 rounded-2xl p-5 sm:p-6">
+            <p className="text-zinc-600 text-[10px] uppercase tracking-widest font-semibold mb-3">Total deposited</p>
+            <p className="text-3xl sm:text-4xl font-black text-white font-mono tracking-tight">
+              ₹{totalDeposited.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+            <p className="text-zinc-700 text-xs mt-2 font-mono">
+              {transactions.filter(t => t.type === "DEPOSIT").length} deposit{transactions.filter(t => t.type === "DEPOSIT").length !== 1 ? "s" : ""}
+            </p>
+          </div>
+
+          <div className="bg-[#111114] border border-zinc-800 rounded-2xl p-5 sm:p-6">
+            <p className="text-zinc-600 text-[10px] uppercase tracking-widest font-semibold mb-3">Total withdrawn</p>
+            <p className="text-3xl sm:text-4xl font-black text-white font-mono tracking-tight">
+              ₹{totalWithdrawn.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+            <p className="text-zinc-700 text-xs mt-2 font-mono">
+              {transactions.filter(t => t.type === "WITHDRAWAL").length} withdrawal{transactions.filter(t => t.type === "WITHDRAWAL").length !== 1 ? "s" : ""}
+            </p>
+          </div>
+        </div>
+
+        {/* ── Filter row ── */}
+        <div className="flex flex-wrap gap-2 mb-4 items-center">
           {typeFilters.map((f) => (
             <button
               key={f.val}
               onClick={() => setTypeFilter(f.val)}
-              className={`px-3 py-1.5 text-xs rounded-lg ${
+              className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all ${
                 typeFilter === f.val
-                  ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                  : "bg-[#111318] text-zinc-500 border border-zinc-800 hover:text-white"
+                  ? "bg-zinc-100 text-black"
+                  : "bg-zinc-800/60 text-zinc-500 border border-zinc-700/60 hover:text-white hover:bg-zinc-700"
               }`}
             >
               {f.label}
             </button>
           ))}
           {filtered.length > 0 && (
-            <button onClick={downloadCSV} className="ml-auto p-2 bg-[#111318] border border-zinc-800 rounded-xl hover:bg-zinc-800">
-              <Download size={20} />
+            <button
+              onClick={downloadCSV}
+              title="Export CSV"
+              className="ml-auto flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-zinc-800/60 border border-zinc-700/60 text-zinc-500 hover:text-white hover:bg-zinc-700 text-xs font-bold transition-all"
+            >
+              <Download size={13} />
+              Export
             </button>
           )}
         </div>
 
+        {/* ── Empty state ── */}
         {filtered.length === 0 ? (
-          <div className="bg-[#111318] border border-zinc-800 rounded-[2rem] p-12 text-center">
-            <Wallet className="mx-auto text-zinc-600 mb-3" size={40} />
-            <p className="text-zinc-500 text-lg">No transactions yet</p>
-            <p className="text-zinc-600 text-sm mt-1">
+          <div className="bg-[#111114] border border-zinc-800 rounded-2xl flex flex-col items-center justify-center py-24 px-8 text-center">
+            <div className="flex items-end gap-2 mb-6 opacity-20">
+              {[40, 24, 56, 32, 48, 20, 44].map((h, i) => (
+                <div key={i} className={`w-4 rounded-t-sm ${i % 2 === 0 ? "bg-emerald-400" : "bg-red-400"}`} style={{ height: h }} />
+              ))}
+            </div>
+            <p className="text-zinc-400 font-semibold text-base mb-1">No transactions</p>
+            <p className="text-zinc-700 text-sm max-w-xs">
               {typeFilter === "all"
-                ? "Deposit money to see your transaction history here"
-                : `No ${typeFilter.toLowerCase()} transactions found`}
+                ? "Deposit funds from the dashboard to get started."
+                : `No ${typeFilter.toLowerCase()} transactions yet.`}
             </p>
           </div>
         ) : (
           <>
-            {/* Desktop table */}
-            <div className="hidden md:block bg-[#111318] border border-zinc-800 rounded-[2rem] overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="text-zinc-500 text-xs uppercase tracking-wider border-b border-zinc-800">
-                      <th className="px-6 py-5">Type</th>
-                      <th className="px-6 py-5">Amount</th>
-                      <th className="px-6 py-5">Status</th>
-                      <th className="px-6 py-5">Order ID</th>
-                      <th className="px-6 py-5">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-sm">
-                    {filtered.map((tx) => (
-                      <tr key={tx.id} className="border-b border-zinc-800/50 hover:bg-zinc-800/20">
-                        <td className="px-6 py-5">
+            {/* ── Desktop table ── */}
+            <div className="hidden md:block bg-[#111114] border border-zinc-800 rounded-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-zinc-800/60 flex items-center justify-between">
+                <p className="text-zinc-600 text-[10px] uppercase tracking-widest font-semibold">Transactions</p>
+                <span className="text-zinc-700 text-xs font-mono">{filtered.length} records</span>
+              </div>
+
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="text-zinc-700 text-[10px] uppercase tracking-widest border-b border-zinc-800/60">
+                    <th className="px-6 py-3 font-semibold">Type</th>
+                    <th className="px-6 py-3 font-semibold">Amount</th>
+                    <th className="px-6 py-3 font-semibold">Status</th>
+                    <th className="px-6 py-3 font-semibold">Reference</th>
+                    <th className="px-6 py-3 font-semibold text-right">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((tx) => {
+                    const isDeposit = tx.type === "DEPOSIT"
+                    const amt = parseFloat(tx.amount)
+                    return (
+                      <tr key={tx.id} className="border-b border-zinc-800/40 last:border-0 hover:bg-zinc-800/20 transition-colors">
+                        <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                              tx.type === "DEPOSIT"
-                                ? "bg-green-500/20 text-green-400"
-                                : "bg-red-500/20 text-red-400"
-                            }`}>
-                              {tx.type === "DEPOSIT" ? <ArrowDownLeft size={16} /> : <ArrowUpRight size={16} />}
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isDeposit ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
+                              {isDeposit ? <ArrowDownLeft size={14} /> : <ArrowUpRight size={14} />}
                             </div>
-                            <span className={`font-bold ${
-                              tx.type === "DEPOSIT" ? "text-green-400" : "text-red-400"
-                            }`}>
-                              {tx.type === "DEPOSIT" ? "Deposit" : "Withdrawal"}
+                            <span className={`font-bold text-sm ${isDeposit ? "text-emerald-400" : "text-red-400"}`}>
+                              {isDeposit ? "Deposit" : "Withdrawal"}
                             </span>
                           </div>
                         </td>
-                        <td className="px-6 py-5">
-                          <span className={`font-bold ${
-                            tx.type === "DEPOSIT" ? "text-green-400" : "text-red-400"
-                          }`}>
-                            {tx.type === "DEPOSIT" ? "+" : "-"}₹{parseFloat(tx.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                        <td className="px-6 py-4">
+                          <span className={`font-black font-mono text-sm ${isDeposit ? "text-emerald-400" : "text-red-400"}`}>
+                            {isDeposit ? "+" : "−"}₹{amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </td>
-                        <td className="px-6 py-5">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            tx.status === "COMPLETED"
-                              ? "bg-green-500/20 text-green-400"
-                              : tx.status === "PENDING"
-                              ? "bg-yellow-500/20 text-yellow-400"
-                              : "bg-red-500/20 text-red-400"
-                          }`}>
-                            {tx.status}
+                        <td className="px-6 py-4">
+                          <StatusBadge status={tx.status} />
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-zinc-600 font-mono text-xs">
+                            {tx.razorpay_order_id ? `${tx.razorpay_order_id.slice(0, 14)}…` : "—"}
                           </span>
                         </td>
-                        <td className="px-6 py-5">
-                          <span className="text-zinc-500 font-mono text-xs">
-                            {tx.razorpay_order_id
-                              ? `${tx.razorpay_order_id.slice(0, 12)}...`
-                              : "—"}
-                          </span>
-                        </td>
-                        <td className="px-6 py-5 text-zinc-500 text-xs">
-                          {formatDate(tx.created_at)}
+                        <td className="px-6 py-4 text-right">
+                          <span className="text-zinc-500 text-xs font-mono">{formatDate(tx.created_at)}</span>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    )
+                  })}
+                </tbody>
+              </table>
 
-              <div className="p-5 border-t border-zinc-800 bg-[#0d0f14]">
-                <p className="text-xs text-zinc-600">
-                  Showing {filtered.length} of {transactions.length} transactions
+              <div className="px-6 py-3 border-t border-zinc-800/60">
+                <p className="text-zinc-700 text-xs font-mono">
+                  {filtered.length} of {transactions.length} transactions
                 </p>
               </div>
             </div>
 
-            {/* Mobile cards */}
-            <div className="md:hidden space-y-3">
-              {filtered.map((tx) => (
-                <div key={tx.id} className="bg-[#111318] border border-zinc-800 rounded-2xl p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        tx.type === "DEPOSIT"
-                          ? "bg-green-500/20 text-green-400"
-                          : "bg-red-500/20 text-red-400"
-                      }`}>
-                        {tx.type === "DEPOSIT" ? <ArrowDownLeft size={16} /> : <ArrowUpRight size={16} />}
+            {/* ── Mobile cards ── */}
+            <div className="md:hidden space-y-2">
+              {filtered.map((tx) => {
+                const isDeposit = tx.type === "DEPOSIT"
+                const amt = parseFloat(tx.amount)
+                return (
+                  <div key={tx.id} className="bg-[#111114] border border-zinc-800 rounded-2xl p-4">
+                    <div className="flex items-center justify-between mb-2.5">
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isDeposit ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
+                          {isDeposit ? <ArrowDownLeft size={15} /> : <ArrowUpRight size={15} />}
+                        </div>
+                        <div>
+                          <p className={`font-bold text-sm leading-none ${isDeposit ? "text-emerald-400" : "text-red-400"}`}>
+                            {isDeposit ? "Deposit" : "Withdrawal"}
+                          </p>
+                          <p className="text-zinc-600 text-[10px] mt-0.5 font-mono">{formatDate(tx.created_at)}</p>
+                        </div>
                       </div>
-                      <span className={`font-bold ${
-                        tx.type === "DEPOSIT" ? "text-green-400" : "text-red-400"
-                      }`}>
-                        {tx.type === "DEPOSIT" ? "Deposit" : "Withdrawal"}
+                      <span className={`font-black font-mono text-base ${isDeposit ? "text-emerald-400" : "text-red-400"}`}>
+                        {isDeposit ? "+" : "−"}₹{amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
-                    <span className={`font-bold text-lg ${
-                      tx.type === "DEPOSIT" ? "text-green-400" : "text-red-400"
-                    }`}>
-                      {tx.type === "DEPOSIT" ? "+" : "-"}₹{parseFloat(tx.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        tx.status === "COMPLETED"
-                          ? "bg-green-500/20 text-green-400"
-                          : tx.status === "PENDING"
-                          ? "bg-yellow-500/20 text-yellow-400"
-                          : "bg-red-500/20 text-red-400"
-                      }`}>
-                        {tx.status}
-                      </span>
-                      <span className="text-zinc-600 font-mono">
-                        {tx.razorpay_order_id
-                          ? tx.razorpay_order_id.slice(0, 10)
-                          : "—"}
+                    <div className="flex items-center justify-between">
+                      <StatusBadge status={tx.status} />
+                      <span className="text-zinc-700 font-mono text-[10px]">
+                        {tx.razorpay_order_id ? tx.razorpay_order_id.slice(0, 12) + "…" : "—"}
                       </span>
                     </div>
-                    <span className="text-zinc-500">{formatDate(tx.created_at)}</span>
                   </div>
-                </div>
-              ))}
-              <div className="text-center text-xs text-zinc-600 pt-2 pb-1">
-                Showing {filtered.length} of {transactions.length} transactions
-              </div>
+                )
+              })}
+              <p className="text-center text-zinc-700 text-xs font-mono pt-2">
+                {filtered.length} of {transactions.length} transactions
+              </p>
             </div>
           </>
         )}
