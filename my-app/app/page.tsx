@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useEffect, useState, useRef } from "react"
 import { Play, Rocket, BarChart3, LineChart, PieChart } from "lucide-react"
+import { getSocket } from "../lib/socket"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
 
@@ -29,17 +30,6 @@ const stats = [
   { value: 50, suffix: "k+", prefix: "", label: "ACTIVE TRADERS" },
   { value: 200, suffix: "+", prefix: "", label: "ASSETS SUPPORTED" },
   { value: 0.1, suffix: "ms", prefix: "", label: "LATENCY" }
-]
-
-const tickerSymbols = [
-  { name: "BTC/USD", price: "68,421.30", change: "+2.84%" },
-  { name: "ETH/USD", price: "3,812.44", change: "+1.23%" },
-  { name: "SOL/USD", price: "182.55", change: "-0.87%" },
-  { name: "AAPL", price: "189.30", change: "+0.54%" },
-  { name: "TSLA", price: "245.10", change: "+3.21%" },
-  { name: "NVDA", price: "875.40", change: "+4.67%" },
-  { name: "BNB/USD", price: "412.88", change: "+1.02%" },
-  { name: "GOLD", price: "2,342.10", change: "-0.31%" },
 ]
 
 function useCountUp(target: number, duration = 2000, start = false) {
@@ -71,10 +61,16 @@ function StatCard({ stat, animate }: { stat: typeof stats[0], animate: boolean }
   )
 }
 
+type PriceEntry = {
+  symbol: string
+  last: number
+  changePercent: number
+  bid: number
+  ask: number
+}
+
 export default function Home() {
-  const [prices, setPrices] = useState<Record<string, {
-    symbol: string; last: number; changePercent: number; bid: number; ask: number
-  }> | null>(null)
+  const [prices, setPrices] = useState<Record<string, PriceEntry> | null>(null)
   const [statsVisible, setStatsVisible] = useState(false)
   const [heroVisible, setHeroVisible] = useState(false)
   const [featuresVisible, setFeaturesVisible] = useState(false)
@@ -86,16 +82,20 @@ export default function Home() {
   const particlesRef = useRef<{ x: number; y: number; vx: number; vy: number; size: number; opacity: number }[]>([])
   const animFrameRef = useRef<number | null>(null)
 
+  // ── Fetch initial prices via HTTP, then keep live via socket ──
   useEffect(() => {
-    function fetchPrices() {
-      fetch(`${API_URL}/api/market/prices`)
-        .then((r) => r.json())
-        .then((d) => { if (d.success) setPrices(d.data) })
-        .catch(() => console.error("Failed to fetch market prices"))
+    fetch(`${API_URL}/api/market/prices`)
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setPrices(d.data) })
+      .catch(() => console.error("Failed to fetch market prices"))
+
+    const socket = getSocket()
+    socket.on("priceUpdate", (data: Record<string, PriceEntry>) => {
+      setPrices(data)
+    })
+    return () => {
+      socket.off("priceUpdate")
     }
-    fetchPrices()
-    const id = setInterval(fetchPrices, 30000)
-    return () => clearInterval(id)
   }, [])
 
   // Hero entrance
@@ -192,6 +192,19 @@ export default function Home() {
     return () => clearInterval(id)
   }, [])
 
+  // ── Build live ticker items from prices state ──
+  const tickerItems = prices
+    ? Object.values(prices).map((p) => ({
+        name: p.symbol.replace("_", "/"),
+        price: p.last.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        change: `${p.changePercent >= 0 ? "+" : ""}${p.changePercent.toFixed(2)}%`,
+        positive: p.changePercent >= 0,
+      }))
+    : []
+
+  // Duplicate for seamless loop
+  const tickerDisplay = tickerItems.length > 0 ? [...tickerItems, ...tickerItems] : []
+
   const btc = prices?.BTC_USD
   const lastPrice = btc
     ? btc.last.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -229,21 +242,26 @@ export default function Home() {
         }}
       />
 
-      {/* Ticker bar */}
-      <div className="bg-[#0a0a0a] border-b border-white/5 overflow-hidden py-2">
-        <div className="flex animate-ticker whitespace-nowrap">
-          {[...tickerSymbols, ...tickerSymbols].map((t, i) => (
-            <span key={i} className="inline-flex items-center gap-2 px-8 text-xs font-mono">
-              <span className="text-zinc-400 font-bold">{t.name}</span>
-              <span className="text-white">₹{t.price}</span>
-              <span className={t.change.startsWith("+") ? "text-green-400" : "text-red-400"}>
-                {t.change}
+      {/* Ticker bar — live prices when available, hidden while loading */}
+      {tickerDisplay.length > 0 && (
+        <div className="bg-[#0a0a0a] border-b border-white/5 overflow-hidden py-2">
+          <div
+            className="flex animate-ticker whitespace-nowrap"
+            style={{ animationDuration: `${Math.max(tickerItems.length * 4, 20)}s` }}
+          >
+            {tickerDisplay.map((t, i) => (
+              <span key={i} className="inline-flex items-center gap-2 px-8 text-xs font-mono">
+                <span className="text-zinc-400 font-bold">{t.name}</span>
+                <span className="text-white">₹{t.price}</span>
+                <span className={t.positive ? "text-green-400" : "text-red-400"}>
+                  {t.change}
+                </span>
+                <span className="text-zinc-700 mx-2">|</span>
               </span>
-              <span className="text-zinc-700 mx-2">|</span>
-            </span>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <nav className="flex justify-between items-center px-8 py-6 max-w-7xl mx-auto border-b border-white/5">
         <div className="flex items-center gap-8">
@@ -332,7 +350,6 @@ export default function Home() {
                 <div className="relative h-48">
                   <div className="absolute bottom-4 left-0 right-0 h-28 border-l-2 border-b-2 border-green-400/80 skew-y-[-10deg] rounded-bl-xl"></div>
                   <div className="absolute bottom-7 left-[18%] right-[12%] h-20 border-t-2 border-r-2 border-blue-400/80 skew-y-[8deg]"></div>
-                  {/* Animated bars */}
                   <div className="absolute bottom-4 left-0 right-0 flex items-end gap-2 opacity-60">
                     {barHeights.map((height, index) => (
                       <span
@@ -392,7 +409,6 @@ export default function Home() {
               className={`bg-[#111] border border-white/5 p-8 rounded-3xl hover:border-blue-500/30 transition-all group relative overflow-hidden ${featuresVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
               style={{ transitionDuration: "600ms", transitionDelay: `${i * 150}ms` }}
             >
-              {/* Shimmer on hover */}
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 via-blue-500/5 to-blue-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
               <div className="bg-white/5 w-12 h-12 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-blue-500/10 transition-all duration-300 relative z-10">
                 {f.icon}
@@ -447,7 +463,7 @@ export default function Home() {
           100% { transform: translateX(-50%); }
         }
         .animate-ticker {
-          animation: ticker 30s linear infinite;
+          animation: ticker linear infinite;
           will-change: transform;
         }
         .animate-ticker:hover {
