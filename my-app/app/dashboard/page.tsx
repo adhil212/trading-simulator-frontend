@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useEffect, useState, memo } from "react"
-import { Loader2 } from "lucide-react"
+import { Loader2, TrendingUp, TrendingDown, Zap, Shield, BarChart2, ArrowRight } from "lucide-react"
 import ChatPanel from "./ChatPanel"
 import toast from "react-hot-toast"
 import { getSocket } from "../../lib/socket"
@@ -13,7 +13,7 @@ type AssetInfo = {
   symbol: string
   name: string
   type: string
-} 
+}
 
 type PriceData = {
   last: number
@@ -24,6 +24,165 @@ type PricesState = {
   [key: string]: PriceData
 }
 
+// ─── Ticker bar for the hero ────────────────────────────────────────────────
+function TickerBar({ prices, assets }: { prices: PricesState; assets: AssetInfo[] }) {
+  if (!assets.length) return null
+  const items = [...assets, ...assets]
+  return (
+    <div className="overflow-hidden border-y border-zinc-800 bg-zinc-950/80 backdrop-blur-sm">
+      <div
+        className="flex gap-10 py-2.5 animate-ticker whitespace-nowrap"
+        style={{ animationDuration: `${Math.max(items.length * 3, 20)}s` }}
+      >
+        {items.map((a, i) => {
+          const p = prices[a.symbol]
+          const up = (p?.changePercent ?? 0) >= 0
+          return (
+            <span key={i} className="inline-flex items-center gap-2 text-sm font-mono">
+              <span className="text-zinc-400 font-bold tracking-wider text-xs">{a.symbol}</span>
+              <span className="text-white font-semibold">
+                ₹{(p?.last ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+              <span className={`text-xs font-bold ${up ? "text-emerald-400" : "text-red-400"}`}>
+                {up ? "▲" : "▼"} {Math.abs(p?.changePercent ?? 0).toFixed(2)}%
+              </span>
+            </span>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ─── Guest hero ─────────────────────────────────────────────────────────────
+function GuestHero({ prices, assets }: { prices: PricesState; assets: AssetInfo[] }) {
+  return (
+    <div className="min-h-screen bg-[#09090b] flex flex-col">
+      {/* Ticker */}
+      <TickerBar prices={prices} assets={assets} />
+
+      {/* Main hero */}
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-20 text-center relative">
+        {/* Ambient glow */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(ellipse 60% 40% at 50% 20%, rgba(16,185,129,0.07) 0%, transparent 70%)",
+          }}
+        />
+
+        <div className="relative z-10 max-w-2xl mx-auto">
+          <div className="inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-4 py-1.5 text-emerald-400 text-xs font-semibold tracking-widest uppercase mb-8">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            Live markets · Zero risk
+          </div>
+
+          <h1 className="text-5xl sm:text-6xl md:text-7xl font-black text-white leading-none tracking-tight mb-6">
+            Trade like a{" "}
+            <span
+              className="text-transparent"
+              style={{
+                WebkitTextStroke: "1.5px #10b981",
+              }}
+            >
+              pro.
+            </span>
+            <br />
+            <span className="text-zinc-500 text-4xl sm:text-5xl md:text-6xl font-bold">Risk nothing.</span>
+          </h1>
+
+          <p className="text-zinc-400 text-lg sm:text-xl leading-relaxed mb-10 max-w-lg mx-auto">
+            A real-time trading simulator with live Indian market prices. Build strategies, test your instincts,
+            and track your P&L — with virtual money.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-3 justify-center mb-16">
+            <Link
+              href="/register"
+              className="group inline-flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-8 py-3.5 rounded-xl transition-all text-base"
+            >
+              Start trading free
+              <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+            <Link
+              href="/login"
+              className="inline-flex items-center justify-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold px-8 py-3.5 rounded-xl transition-all text-base border border-zinc-700"
+            >
+              Sign in
+            </Link>
+          </div>
+
+          {/* Feature pills */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left">
+            {[
+              { icon: <Zap size={16} />, title: "Real-time prices", sub: "Live data via WebSocket" },
+              { icon: <BarChart2 size={16} />, title: "Portfolio analytics", sub: "Win rate, P&L, best trade" },
+              { icon: <Shield size={16} />, title: "Zero real money", sub: "Learn without any risk" },
+            ].map((f) => (
+              <div
+                key={f.title}
+                className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-4 flex items-start gap-3"
+              >
+                <div className="text-emerald-400 mt-0.5 shrink-0">{f.icon}</div>
+                <div>
+                  <p className="text-white font-semibold text-sm">{f.title}</p>
+                  <p className="text-zinc-500 text-xs mt-0.5">{f.sub}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Live preview strip */}
+      {assets.length > 0 && (
+        <div className="border-t border-zinc-800 bg-zinc-950 px-6 py-8">
+          <p className="text-zinc-600 text-xs uppercase tracking-widest font-semibold text-center mb-5">
+            Live market preview
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 max-w-5xl mx-auto">
+            {assets.slice(0, 6).map((a) => {
+              const p = prices[a.symbol]
+              const up = (p?.changePercent ?? 0) >= 0
+              return (
+                <div
+                  key={a.symbol}
+                  className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center"
+                >
+                  <p className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider mb-1">
+                    {a.symbol}
+                  </p>
+                  <p className="text-white font-bold text-sm font-mono">
+                    ₹{(p?.last ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                  <p className={`text-[10px] font-bold mt-0.5 ${up ? "text-emerald-400" : "text-red-400"}`}>
+                    {up ? "▲" : "▼"} {Math.abs(p?.changePercent ?? 0).toFixed(2)}%
+                  </p>
+                </div>
+              )
+            })}
+          </div>
+          <p className="text-center mt-6">
+            <Link href="/login" className="text-emerald-400 hover:text-emerald-300 text-sm font-semibold transition-colors">
+              Sign in to start trading →
+            </Link>
+          </p>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes ticker {
+          from { transform: translateX(0); }
+          to   { transform: translateX(-50%); }
+        }
+        .animate-ticker { animation: ticker linear infinite; }
+      `}</style>
+    </div>
+  )
+}
+
+// ─── Asset card ──────────────────────────────────────────────────────────────
 const AssetCard = memo(function AssetCard({
   asset,
   last,
@@ -34,7 +193,7 @@ const AssetCard = memo(function AssetCard({
   setTrade,
   balance,
   trading,
-  executeTrade
+  executeTrade,
 }: {
   asset: AssetInfo
   last: number
@@ -47,122 +206,141 @@ const AssetCard = memo(function AssetCard({
   trading: boolean
   executeTrade: () => void
 }) {
+  const isActive = trade?.symbol === asset.symbol
+
   return (
-    <div className="bg-[#1c1f26] border border-zinc-800 rounded-2xl p-4 md:p-6 shadow-xl">
-      <div className="flex items-center gap-3 mb-3 md:mb-4">
-        <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-zinc-800 flex items-center justify-center border border-zinc-700 font-bold text-white text-xs">
-          {asset.symbol[0]}
+    <div
+      className={`bg-[#111114] border rounded-2xl p-5 transition-all duration-200 ${
+        isActive ? "border-zinc-600 shadow-lg shadow-black/40" : "border-zinc-800/80 hover:border-zinc-700"
+      }`}
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center font-black text-white text-sm">
+            {asset.symbol[0]}
+          </div>
+          <div>
+            <h3 className="text-white font-bold text-base leading-none">{asset.symbol}</h3>
+            <p className="text-zinc-500 text-[10px] mt-0.5 uppercase tracking-wide">
+              {asset.name} · {asset.type}
+            </p>
+            {qty !== undefined && qty > 0 && (
+              <p className="text-zinc-400 text-[10px] mt-0.5">
+                <span className="text-emerald-500 font-bold">{qty}</span> held
+              </p>
+            )}
+          </div>
         </div>
 
-        <div>
-          <h3 className="text-white font-bold text-base md:text-lg">
-            {asset.symbol}
-          </h3>
-
-          <span className="text-[10px] text-zinc-500 uppercase">
-            {asset.name} · {asset.type}
-          </span>
-          {qty !== undefined && (
-            <div className="text-[10px] text-zinc-400 mt-0.5">
-              Qty: {qty}
-            </div>
-          )}
+        <div className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg ${
+          isUp ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+        }`}>
+          {isUp ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+          {change.toFixed(2)}%
         </div>
       </div>
 
+      {/* Price */}
       <Link href={`/dashboard/${asset.symbol}`}>
-        <div className="text-2xl md:text-3xl font-bold text-white">
-          ₹
-          {last.toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 4,
-          })}
-        </div>
-
-        <div
-          className={`flex items-center text-sm font-bold mt-1 ${
-            isUp ? "text-green-400" : "text-red-400"
-          }`}
-        >
-          {isUp ? "▲" : "▼"} {change.toFixed(2)}%
+        <div className="group mb-4">
+          <p className="text-2xl md:text-3xl font-black text-white font-mono tracking-tight group-hover:text-zinc-200 transition-colors">
+            ₹{last.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+          </p>
+          <p className="text-zinc-600 text-[10px] mt-1 group-hover:text-zinc-500 transition-colors">
+            Tap to view chart →
+          </p>
         </div>
       </Link>
 
-      <div className="flex gap-3 mt-3 md:mt-4">
+      {/* Buy / Sell buttons */}
+      <div className="flex gap-2">
         <button
-          onClick={() => setTrade({ symbol: asset.symbol, type: "BUY", quantity: "0" })}
-          className="flex-1 py-2 rounded-xl border border-green-500/50 text-green-400 font-bold hover:bg-green-500/20 transition-all text-sm text-center"
+          onClick={() => setTrade(isActive && trade?.type === "BUY" ? null : { symbol: asset.symbol, type: "BUY", quantity: "0" })}
+          className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
+            isActive && trade?.type === "BUY"
+              ? "bg-emerald-500 text-black"
+              : "border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
+          }`}
         >
           Buy
         </button>
-
         <button
-          onClick={() => setTrade({ symbol: asset.symbol, type: "SELL", quantity: "0" })}
-          className="flex-1 py-2 rounded-xl border border-red-500/50 text-red-400 font-bold hover:bg-red-500/20 transition-all text-sm text-center"
+          onClick={() => setTrade(isActive && trade?.type === "SELL" ? null : { symbol: asset.symbol, type: "SELL", quantity: "0" })}
+          className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
+            isActive && trade?.type === "SELL"
+              ? "bg-red-500 text-white"
+              : "border border-red-500/40 text-red-400 hover:bg-red-500/10"
+          }`}
         >
           Sell
         </button>
       </div>
 
-      {trade && trade.symbol === asset.symbol && (
-        <div className="mt-3 md:mt-4 p-3 rounded-xl bg-zinc-800/50 border border-zinc-700">
-          {(() => {
-            const price = last || 1
-            const maxQty = trade.type === "BUY"
-              ? Math.floor((balance ?? 0) / price)
-              : Math.floor(qty ?? 0)
-            const q = Math.min(parseFloat(trade.quantity || "0"), maxQty)
+      {/* Trade panel */}
+      {isActive && (() => {
+        const price = last || 1
+        const maxQty =
+          trade!.type === "BUY"
+            ? Math.floor((balance ?? 0) / price)
+            : Math.floor(qty ?? 0)
+        const q = Math.min(parseFloat(trade!.quantity || "0"), maxQty)
+        const total = q * price
 
-            return (
-              <>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-zinc-400">Qty: {q}</span>
-                  <span className="text-xs text-zinc-400">
-                    ~₹{(q * price).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max={maxQty || 1}
-                  step="1"
-                  value={q}
-                  onChange={(e) => setTrade({ ...trade, quantity: e.target.value })}
-                  className="w-full h-2 rounded-full appearance-none cursor-pointer bg-zinc-700 accent-zinc-400 mb-2"
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={executeTrade}
-                    disabled={trading || q === 0}
-                    className={`flex-1 py-2 rounded-lg text-sm font-bold text-white ${
-                      trade.type === "BUY"
-                        ? "bg-green-600 hover:bg-green-500"
-                        : "bg-red-600 hover:bg-red-500"
-                    } disabled:opacity-50 transition-all`}
-                  >
-                    {trading ? "Processing..." : `Confirm ${trade.type}`}
-                  </button>
-                  <button
-                    onClick={() => setTrade(null)}
-                    className="px-3 py-2 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-white text-sm transition-all"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </>
-            )
-          })()}
-        </div>
-      )}
+        return (
+          <div className="mt-4 pt-4 border-t border-zinc-800">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-zinc-500 text-xs">Quantity</span>
+              <span className="text-white text-xs font-bold font-mono">{q} units</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max={maxQty || 1}
+              step="1"
+              value={q}
+              onChange={(e) => setTrade({ ...trade!, quantity: e.target.value })}
+              className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-zinc-700 accent-emerald-400 mb-3"
+            />
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-zinc-500 text-xs">Total cost</span>
+              <span className={`text-sm font-bold font-mono ${trade!.type === "BUY" ? "text-emerald-400" : "text-red-400"}`}>
+                ₹{total.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={executeTrade}
+                disabled={trading || q === 0}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-40 ${
+                  trade!.type === "BUY"
+                    ? "bg-emerald-600 hover:bg-emerald-500 active:scale-95"
+                    : "bg-red-600 hover:bg-red-500 active:scale-95"
+                }`}
+              >
+                {trading ? "Processing…" : `Confirm ${trade!.type}`}
+              </button>
+              <button
+                onClick={() => setTrade(null)}
+                className="px-3 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm transition-all"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 })
 
+// ─── Main dashboard ──────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const [prices, setPrices] = useState<PricesState>({})
   const [assets, setAssets] = useState<AssetInfo[]>([])
   const [balance, setBalance] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [showDeposit, setShowDeposit] = useState(false)
   const [showWithdraw, setShowWithdraw] = useState(false)
   const [depositAmount, setDepositAmount] = useState("")
@@ -181,6 +359,10 @@ export default function DashboardPage() {
   function getToken() {
     return localStorage.getItem("token")
   }
+
+  useEffect(() => {
+    setIsLoggedIn(!!localStorage.getItem("token"))
+  }, [])
 
   async function refetchBalance() {
     const token = getToken()
@@ -259,9 +441,7 @@ export default function DashboardPage() {
             closeDepositModal()
           }
         },
-        modal: {
-          ondismiss: () => setProcessing(false),
-        },
+        modal: { ondismiss: () => setProcessing(false) },
       }
 
       const razorpay = new (window as any).Razorpay(options)
@@ -316,52 +496,38 @@ export default function DashboardPage() {
     }
   }
 
-  // Fetch assets
   useEffect(() => {
     fetch(`${API}/api/market/assets`)
       .then((r) => r.json())
-      .then((d) => {
-        if (d.success) {
-          setAssets(d.data)
-        }
-      })
-      .catch(() => {
-        toast.error("Failed to load assets")
-      })
+      .then((d) => { if (d.success) setAssets(d.data) })
+      .catch(() => toast.error("Failed to load assets"))
   }, [])
 
-  // Socket connection
   useEffect(() => {
     const socket = getSocket()
-
     socket.on("priceUpdate", (data: PricesState) => {
       setPrices(data)
       setLoading(false)
     })
-
-    socket.on("connect_error", () => {
-      setLoading(false)
-    })
-
+    socket.on("connect_error", () => setLoading(false))
     return () => {
       socket.off("priceUpdate")
       socket.off("connect_error")
     }
   }, [])
 
-  // Loading timeout and HTTP fallback
   useEffect(() => {
     let pollId: ReturnType<typeof setInterval> | null = null
     const timeout = setTimeout(() => {
       setLoading(false)
       fetch(`${API}/api/market/prices`)
-        .then(r => r.json())
-        .then(d => { if (d.success) setPrices(d.data) })
+        .then((r) => r.json())
+        .then((d) => { if (d.success) setPrices(d.data) })
         .catch(() => {})
       pollId = setInterval(() => {
         fetch(`${API}/api/market/prices`)
-          .then(r => r.json())
-          .then(d => { if (d.success) setPrices(d.data) })
+          .then((r) => r.json())
+          .then((d) => { if (d.success) setPrices(d.data) })
           .catch(() => {})
       }, 15000)
     }, 8000)
@@ -371,13 +537,10 @@ export default function DashboardPage() {
     }
   }, [])
 
-  // Fetch portfolio positions
   useEffect(() => {
     const token = localStorage.getItem("token")
     if (!token) return
-    fetch(`${API}/api/trading/portfolio`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    fetch(`${API}/api/trading/portfolio`, { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
       .then((d) => {
         if (d.positions) {
@@ -388,32 +551,20 @@ export default function DashboardPage() {
           setPositions(map)
         }
       })
-      .catch(() => {
-        console.error("Failed to fetch portfolio")
-      })
+      .catch(() => console.error("Failed to fetch portfolio"))
   }, [])
 
-  // Fetch wallet balance
-  useEffect(() => {
-    refetchBalance()
-  }, [])
+  useEffect(() => { refetchBalance() }, [])
 
-  // Fetch performance metrics
   useEffect(() => {
     const token = localStorage.getItem("token")
     if (!token) return
-    fetch(`${API}/api/trading/performance`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(r => r.json())
-      .then(d => {
-        if (d.totalTrades !== undefined) setPerformance(d)
-      })
-      .catch(() => {
-        console.error("Failed to fetch performance")
-      })
+    fetch(`${API}/api/trading/performance`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((d) => { if (d.totalTrades !== undefined) setPerformance(d) })
+      .catch(() => console.error("Failed to fetch performance"))
   }, [])
-   
+
   async function executeTrade() {
     if (!trade) return
     const token = localStorage.getItem("token")
@@ -431,12 +582,8 @@ export default function DashboardPage() {
         toast.error(data.error)
       } else {
         const [balanceRes, portfolioRes] = await Promise.all([
-          fetch(`${API}/api/wallet`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(`${API}/api/trading/portfolio`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
+          fetch(`${API}/api/wallet`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${API}/api/trading/portfolio`, { headers: { Authorization: `Bearer ${token}` } }),
         ])
         const balanceData = await balanceRes.json()
         if (balanceData.balance !== undefined) setBalance(balanceData.balance)
@@ -450,7 +597,7 @@ export default function DashboardPage() {
         }
         toast.success(`${trade.type} successful!`)
       }
-    } catch (err) {
+    } catch {
       toast.error("Trade failed")
     } finally {
       setTrading(false)
@@ -458,262 +605,298 @@ export default function DashboardPage() {
     }
   }
 
+  // ── Ticker animation style ──
+  const tickerStyle = (
+    <style>{`
+      @keyframes ticker {
+        from { transform: translateX(0); }
+        to   { transform: translateX(-50%); }
+      }
+      .animate-ticker { animation: ticker linear infinite; }
+    `}</style>
+  )
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#09090b] flex items-center justify-center p-16 text-zinc-400">
-        <Loader2 className="animate-spin text-green-500 mr-3" size={20} />
-        Loading market data...
+      <div className="min-h-screen bg-[#09090b] flex items-center justify-center text-zinc-500">
+        <Loader2 className="animate-spin text-emerald-500 mr-3" size={20} />
+        Loading market data…
       </div>
     )
   }
 
-  return (
-    <div className="p-6 md:p-16 max-w-7xl mx-auto min-h-screen bg-[#09090b]">
-      <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-4 mb-8 md:mb-12">
-        <h1 className="text-3xl sm:text-5xl md:text-7xl font-bold text-white tracking-tight">
-          Balance:{" "}
-          <span className="text-green-400">
-            {balance !== null
-              ? `₹${Number(balance).toLocaleString()}`
-              : "₹0"}
-          </span>
-        </h1>
-        <div className="flex gap-2 sm:pb-1">
-          <button
-            onClick={() => setShowDeposit(true)}
-            className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm transition-all"
-          >
-            Deposit
-          </button>
-          <button
-            onClick={() => setShowWithdraw(true)}
-            className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white font-bold text-sm transition-all"
-          >
-            Withdraw
-          </button>
-        </div>
-      </div>
+  // ── Guest view ──
+  if (!isLoggedIn) {
+    return (
+      <>
+        {tickerStyle}
+        <GuestHero prices={prices} assets={assets} />
+      </>
+    )
+  }
 
-      {showDeposit && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Deposit money"
-          onClick={() => setShowDeposit(false)}
-          onKeyDown={(e) => handleKeyDown(e, closeDepositModal)}
-          tabIndex={-1}
-        >
-          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-xl font-bold text-white mb-4">Deposit Money</h2>
-            <input
-              type="number"
-              min="0"
-              step="any"
-              placeholder="Amount (₹)"
-              value={depositAmount}
-              onChange={(e) => setDepositAmount(e.target.value)}
-              className="w-full mb-4 rounded-lg bg-zinc-800 border border-zinc-600 px-4 py-3 text-sm text-white outline-none focus:border-blue-500"
-            />
+  // ── Authenticated dashboard ──
+  return (
+    <>
+      {tickerStyle}
+      <div className="min-h-screen bg-[#09090b]">
+        {/* Ticker */}
+        <TickerBar prices={prices} assets={assets} />
+
+        <div className="px-4 md:px-8 lg:px-12 py-8 max-w-7xl mx-auto">
+
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-8">
+            <div className="flex-1">
+              <p className="text-zinc-600 text-xs uppercase tracking-widest font-semibold mb-1">Portfolio balance</p>
+              <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tight">
+                {balance !== null ? (
+                  <>
+                    <span className="text-zinc-500 font-bold">₹</span>
+                    <span className="text-emerald-400">{Number(balance).toLocaleString()}</span>
+                  </>
+                ) : (
+                  <span className="text-zinc-700">—</span>
+                )}
+              </h1>
+            </div>
             <div className="flex gap-2">
               <button
-                onClick={handleDeposit}
-                disabled={processing || !depositAmount || parseFloat(depositAmount) <= 0}
-                className="flex-1 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm disabled:opacity-50 transition-all"
+                onClick={() => setShowDeposit(true)}
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-all"
               >
-                {processing ? "Processing..." : "Proceed to Pay"}
+                Deposit
               </button>
               <button
-                onClick={() => { setShowDeposit(false); setDepositAmount("") }}
-                className="px-4 py-3 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white text-sm transition-all"
+                onClick={() => setShowWithdraw(true)}
+                className="px-5 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white font-semibold text-sm transition-all"
               >
-                Cancel
+                Withdraw
               </button>
             </div>
           </div>
-        </div>
-      )}
 
-      {showWithdraw && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Withdraw money"
-          onClick={() => { if (withdrawStep < 3) resetWithdraw() }}
-          onKeyDown={(e) => { if (e.key === "Escape" && withdrawStep < 3) resetWithdraw() }}
-          tabIndex={-1}
-        >
-          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
-
-            {withdrawStep === 1 && (
-              <>
-                <h2 className="text-xl font-bold text-white mb-4">Withdraw Money</h2>
-                <input
-                  type="number" min="0" step="any" placeholder="Amount in ₹"
-                  value={withdrawAmount}
-                  onChange={(e) => setWithdrawAmount(e.target.value)}
-                  className="w-full mb-4 rounded-lg bg-zinc-800 border border-zinc-600 px-4 py-3 text-sm text-white outline-none focus:border-blue-500"
-                />
-                <p className="text-xs text-zinc-500 mb-4">Select withdrawal method</p>
-                <div className="flex gap-2 mb-4">
-                  <button
-                    onClick={() => setWithdrawMethod("upi")}
-                    className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${
-                      withdrawMethod === "upi"
-                        ? "bg-blue-600 text-white"
-                        : "bg-zinc-800 text-zinc-400 border border-zinc-700 hover:text-white"
-                    }`}
-                  >
-                    UPI
-                  </button>
-                  <button
-                    onClick={() => setWithdrawMethod("bank")}
-                    className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${
-                      withdrawMethod === "bank"
-                        ? "bg-blue-600 text-white"
-                        : "bg-zinc-800 text-zinc-400 border border-zinc-700 hover:text-white"
-                    }`}
-                  >
-                    Bank Transfer
-                  </button>
+          {/* Performance metrics */}
+          {performance && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+              {[
+                { label: "Win rate", value: performance.winRate, color: "text-emerald-400" },
+                { label: "Total trades", value: performance.totalTrades, color: "text-white" },
+                {
+                  label: "Realized P&L",
+                  value: `${(parseFloat(performance.totalRealizedPnL) || 0) >= 0 ? "+" : ""}₹${(parseFloat(performance.totalRealizedPnL) || 0).toLocaleString()}`,
+                  color: (parseFloat(performance.totalRealizedPnL) || 0) >= 0 ? "text-emerald-400" : "text-red-400",
+                },
+                { label: "Best trade", value: `+₹${(parseFloat(performance.bestTrade) || 0).toLocaleString()}`, color: "text-emerald-400" },
+              ].map((m) => (
+                <div key={m.label} className="bg-[#111114] border border-zinc-800 rounded-2xl p-4">
+                  <p className="text-zinc-600 text-[10px] uppercase tracking-wider font-semibold mb-1.5">{m.label}</p>
+                  <p className={`text-xl font-black font-mono ${m.color}`}>{m.value}</p>
                 </div>
+              ))}
+            </div>
+          )}
+
+          {/* Asset grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {assets.map((asset) => {
+              const p = prices[asset.symbol]
+              return (
+                <AssetCard
+                  key={asset.symbol}
+                  asset={asset}
+                  last={p?.last ?? 0}
+                  change={p?.changePercent ?? 0}
+                  isUp={(p?.changePercent ?? 0) >= 0}
+                  qty={positions[asset.symbol]}
+                  trade={trade}
+                  setTrade={setTrade}
+                  balance={balance}
+                  trading={trading}
+                  executeTrade={executeTrade}
+                />
+              )
+            })}
+          </div>
+        </div>
+
+        {/* ── Deposit modal ── */}
+        {showDeposit && (
+          <div
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            onClick={() => setShowDeposit(false)}
+            onKeyDown={(e) => handleKeyDown(e, closeDepositModal)}
+            tabIndex={-1}
+          >
+            <div
+              className="bg-[#111114] border border-zinc-800 rounded-t-3xl sm:rounded-2xl p-6 w-full sm:max-w-sm"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-lg font-bold text-white mb-1">Deposit funds</h2>
+              <p className="text-zinc-500 text-sm mb-5">Add virtual money to your trading account.</p>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                placeholder="Amount (₹)"
+                value={depositAmount}
+                onChange={(e) => setDepositAmount(e.target.value)}
+                className="w-full mb-4 rounded-xl bg-zinc-900 border border-zinc-700 px-4 py-3 text-sm text-white outline-none focus:border-emerald-500 transition-colors"
+              />
+              <div className="flex gap-2">
                 <button
-                  onClick={() => setWithdrawStep(2)}
-                  disabled={!withdrawAmount || parseFloat(withdrawAmount) <= 0}
-                  className="w-full py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm disabled:opacity-50 transition-all"
+                  onClick={handleDeposit}
+                  disabled={processing || !depositAmount || parseFloat(depositAmount) <= 0}
+                  className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm disabled:opacity-40 transition-all"
                 >
-                  Continue
+                  {processing ? "Processing…" : "Proceed to pay"}
                 </button>
-                <button onClick={resetWithdraw} className="w-full mt-2 py-2 text-xs text-zinc-500 hover:text-white transition-all">
+                <button
+                  onClick={() => { setShowDeposit(false); setDepositAmount("") }}
+                  className="px-4 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm transition-all"
+                >
                   Cancel
                 </button>
-              </>
-            )}
+              </div>
+            </div>
+          </div>
+        )}
 
-            {withdrawStep === 2 && (
-              <>
-                <h2 className="text-xl font-bold text-white mb-4">
-                  {withdrawMethod === "upi" ? "UPI Details" : "Bank Details"}
-                </h2>
-                {withdrawMethod === "upi" ? (
+        {/* ── Withdraw modal ── */}
+        {showWithdraw && (
+          <div
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            onClick={() => { if (withdrawStep < 3) resetWithdraw() }}
+            onKeyDown={(e) => { if (e.key === "Escape" && withdrawStep < 3) resetWithdraw() }}
+            tabIndex={-1}
+          >
+            <div
+              className="bg-[#111114] border border-zinc-800 rounded-t-3xl sm:rounded-2xl p-6 w-full sm:max-w-sm"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {withdrawStep === 1 && (
+                <>
+                  <h2 className="text-lg font-bold text-white mb-1">Withdraw funds</h2>
+                  <p className="text-zinc-500 text-sm mb-5">Request a withdrawal to your account.</p>
                   <input
-                    type="text" placeholder="UPI ID (e.g. name@upi)"
-                    value={withdrawUpi}
-                    onChange={(e) => setWithdrawUpi(e.target.value)}
-                    className="w-full mb-4 rounded-lg bg-zinc-800 border border-zinc-600 px-4 py-3 text-sm text-white outline-none focus:border-blue-500"
+                    type="number" min="0" step="any" placeholder="Amount (₹)"
+                    value={withdrawAmount}
+                    onChange={(e) => setWithdrawAmount(e.target.value)}
+                    className="w-full mb-4 rounded-xl bg-zinc-900 border border-zinc-700 px-4 py-3 text-sm text-white outline-none focus:border-emerald-500 transition-colors"
                   />
-                ) : (
-                  <>
-                    <input
-                      type="text" placeholder="Account Number"
-                      value={withdrawAccountNo}
-                      onChange={(e) => setWithdrawAccountNo(e.target.value)}
-                      className="w-full mb-3 rounded-lg bg-zinc-800 border border-zinc-600 px-4 py-3 text-sm text-white outline-none focus:border-blue-500"
-                    />
-                    <input
-                      type="text" placeholder="IFSC Code"
-                      value={withdrawIfsc}
-                      onChange={(e) => setWithdrawIfsc(e.target.value)}
-                      className="w-full mb-4 rounded-lg bg-zinc-800 border border-zinc-600 px-4 py-3 text-sm text-white outline-none focus:border-blue-500"
-                    />
-                  </>
-                )}
-                <div className="flex gap-2">
+                  <p className="text-zinc-600 text-xs mb-3 uppercase tracking-wider font-semibold">Withdrawal method</p>
+                  <div className="flex gap-2 mb-5">
+                    {(["upi", "bank"] as const).map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setWithdrawMethod(m)}
+                        className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                          withdrawMethod === m
+                            ? "bg-emerald-600 text-white"
+                            : "bg-zinc-800 text-zinc-400 border border-zinc-700 hover:text-white"
+                        }`}
+                      >
+                        {m === "upi" ? "UPI" : "Bank transfer"}
+                      </button>
+                    ))}
+                  </div>
                   <button
-                    onClick={handleWithdraw}
-                    disabled={processing}
-                    className="flex-1 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm transition-all"
+                    onClick={() => setWithdrawStep(2)}
+                    disabled={!withdrawAmount || parseFloat(withdrawAmount) <= 0}
+                    className="w-full py-3 rounded-xl bg-zinc-200 hover:bg-white text-black font-bold text-sm disabled:opacity-40 transition-all"
                   >
-                    Confirm Withdrawal
+                    Continue
                   </button>
+                  <button onClick={resetWithdraw} className="w-full mt-2 py-2 text-xs text-zinc-600 hover:text-zinc-400 transition-all">
+                    Cancel
+                  </button>
+                </>
+              )}
+
+              {withdrawStep === 2 && (
+                <>
+                  <h2 className="text-lg font-bold text-white mb-5">
+                    {withdrawMethod === "upi" ? "UPI details" : "Bank details"}
+                  </h2>
+                  {withdrawMethod === "upi" ? (
+                    <input
+                      type="text" placeholder="UPI ID (e.g. name@upi)"
+                      value={withdrawUpi}
+                      onChange={(e) => setWithdrawUpi(e.target.value)}
+                      className="w-full mb-5 rounded-xl bg-zinc-900 border border-zinc-700 px-4 py-3 text-sm text-white outline-none focus:border-emerald-500 transition-colors"
+                    />
+                  ) : (
+                    <>
+                      <input
+                        type="text" placeholder="Account number"
+                        value={withdrawAccountNo}
+                        onChange={(e) => setWithdrawAccountNo(e.target.value)}
+                        className="w-full mb-3 rounded-xl bg-zinc-900 border border-zinc-700 px-4 py-3 text-sm text-white outline-none focus:border-emerald-500 transition-colors"
+                      />
+                      <input
+                        type="text" placeholder="IFSC code"
+                        value={withdrawIfsc}
+                        onChange={(e) => setWithdrawIfsc(e.target.value)}
+                        className="w-full mb-5 rounded-xl bg-zinc-900 border border-zinc-700 px-4 py-3 text-sm text-white outline-none focus:border-emerald-500 transition-colors"
+                      />
+                    </>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleWithdraw}
+                      disabled={processing}
+                      className="flex-1 py-3 rounded-xl bg-zinc-200 hover:bg-white text-black font-bold text-sm transition-all"
+                    >
+                      Confirm withdrawal
+                    </button>
+                    <button
+                      onClick={() => setWithdrawStep(1)}
+                      className="px-4 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm transition-all"
+                    >
+                      Back
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {withdrawStep === 3 && (
+                <div className="flex flex-col items-center py-10">
+                  <div className="w-12 h-12 border-2 border-zinc-700 border-t-emerald-500 rounded-full animate-spin mb-4" />
+                  <p className="text-white font-bold">Processing withdrawal</p>
+                  <p className="text-zinc-500 text-sm mt-1">Please wait…</p>
+                </div>
+              )}
+
+              {withdrawStep === 4 && (
+                <div className="flex flex-col items-center py-10">
+                  <div className="w-14 h-14 rounded-full bg-yellow-500/15 border border-yellow-500/40 flex items-center justify-center mb-4">
+                    <svg className="w-7 h-7 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <p className="text-white font-bold text-lg">Withdrawal submitted</p>
+                  <p className="text-yellow-400 text-sm mt-1 font-mono">
+                    ₹{parseFloat(withdrawAmount || "0").toLocaleString()} requested
+                  </p>
+                  <p className="text-zinc-600 text-xs mt-2">Pending admin approval</p>
                   <button
-                    onClick={() => setWithdrawStep(1)}
-                    className="px-4 py-3 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white text-sm transition-all"
+                    onClick={resetWithdraw}
+                    className="mt-5 px-5 py-2 rounded-xl bg-zinc-800 text-zinc-400 hover:text-white text-sm transition-all"
                   >
-                    Back
+                    Close
                   </button>
                 </div>
-              </>
-            )}
-
-            {withdrawStep === 3 && (
-              <div className="flex flex-col items-center py-8">
-                <div className="w-12 h-12 border-4 border-red-500/30 border-t-red-500 rounded-full animate-spin mb-4" />
-                <p className="text-white font-bold text-lg">Processing Withdrawal</p>
-                <p className="text-zinc-500 text-sm mt-1">Please wait...</p>
-              </div>
-            )}
-
-            {withdrawStep === 4 && (
-              <div className="flex flex-col items-center py-8">
-                <div className="w-14 h-14 rounded-full bg-yellow-500/20 border-2 border-yellow-500 flex items-center justify-center mb-4">
-                  <svg className="w-7 h-7 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <p className="text-white font-bold text-lg">Withdrawal Submitted</p>
-                <p className="text-yellow-400 text-sm mt-1">
-                  ₹{parseFloat(withdrawAmount || "0").toLocaleString()} requested
-                </p>
-                <p className="text-zinc-500 text-xs mt-3">Pending admin approval</p>
-                <button
-                  onClick={resetWithdraw}
-                  className="mt-4 px-4 py-2 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white text-sm transition-all"
-                >
-                  Close
-                </button>
-              </div>
-            )}
-
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {performance && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
-          <div className="bg-[#1c1f26] border border-zinc-800 rounded-2xl p-4 md:p-5">
-            <p className="text-zinc-500 text-[10px] md:text-xs uppercase tracking-wider mb-1">Win Rate</p>
-            <p className="text-xl md:text-2xl font-bold text-white">{performance.winRate}</p>
-          </div>
-          <div className="bg-[#1c1f26] border border-zinc-800 rounded-2xl p-4 md:p-5">
-            <p className="text-zinc-500 text-[10px] md:text-xs uppercase tracking-wider mb-1">Total Trades</p>
-            <p className="text-xl md:text-2xl font-bold text-white">{performance.totalTrades}</p>
-          </div>
-          <div className="bg-[#1c1f26] border border-zinc-800 rounded-2xl p-4 md:p-5">
-            <p className="text-zinc-500 text-[10px] md:text-xs uppercase tracking-wider mb-1">Realized P&L</p>
-            <p className={`text-xl md:text-2xl font-bold ${(parseFloat(performance.totalRealizedPnL) || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {(parseFloat(performance.totalRealizedPnL) || 0) >= 0 ? '+' : ''}₹{(parseFloat(performance.totalRealizedPnL) || 0).toLocaleString()}
-            </p>
-          </div>
-          <div className="bg-[#1c1f26] border border-zinc-800 rounded-2xl p-4 md:p-5">
-            <p className="text-zinc-500 text-[10px] md:text-xs uppercase tracking-wider mb-1">Best Trade</p>
-            <p className="text-xl md:text-2xl font-bold text-green-400">+₹{(parseFloat(performance.bestTrade) || 0).toLocaleString()}</p>
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">
-        {assets.map((asset) => {
-          const p = prices[asset.symbol]
-          return (
-            <AssetCard
-              key={asset.symbol}
-              asset={asset}
-              last={p?.last ?? 0}
-              change={p?.changePercent ?? 0}
-              isUp={(p?.changePercent ?? 0) >= 0}
-              qty={positions[asset.symbol]}
-              trade={trade}
-              setTrade={setTrade}
-              balance={balance}
-              trading={trading}
-              executeTrade={executeTrade}
-            />
-          )
-        })}
+        <ChatPanel />
       </div>
-      <ChatPanel />
-    </div>
+    </>
   )
 }
