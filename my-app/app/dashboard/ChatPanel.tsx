@@ -6,7 +6,13 @@ import toast from "react-hot-toast";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-const SUGGESTIONS = [
+const GUEST_SUGGESTIONS = [
+  "What is TradeSim?",
+  "How does commission work?",
+  "What assets can I trade?",
+];
+
+const USER_SUGGESTIONS = [
   "What's my wallet balance?",
   "Show me my portfolio",
   "How does commission work?",
@@ -19,8 +25,13 @@ type Message = {
 
 export default function ChatPanel() {
   const [open, setOpen] = useState(false);
+  const isLoggedIn = typeof window !== "undefined" && !!localStorage.getItem("token");
+  const SUGGESTIONS = isLoggedIn ? USER_SUGGESTIONS : GUEST_SUGGESTIONS;
   const [messages, setMessages] = useState<Message[]>([
-    { role: "bot", text: "Hi! I'm your trading assistant. Ask me about your portfolio, trades, or how the platform works." },
+    { role: "bot", text: isLoggedIn
+      ? "Hi! I'm your trading assistant. Ask me about your portfolio, trades, or how the platform works."
+      : "Hi! I'm your trading assistant. Ask me anything about TradeSim — how it works, supported assets, fees, and more."
+    },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -38,9 +49,11 @@ export default function ChatPanel() {
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
       const res = await fetch(`${API}/api/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers,
         body: JSON.stringify({ message: text }),
       });
       const data = await res.json();
